@@ -1,0 +1,4 @@
+# 键名: 音效名[-音量][-音调]
+menu_open: 'UI_BUTTON_CLICK-1.0-1.0'
+menu_close: 'BLOCK_CHEST_CLOSE-1.0-1.0'
+menu_click: 'UI_BUTTON_CLICK-0.8-1.2'
