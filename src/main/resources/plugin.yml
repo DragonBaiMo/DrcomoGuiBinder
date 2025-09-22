@@ -1,12 +1,36 @@
 name: DrcomoGuiBinder
 version: '${project.version}'
 main: cn.drcomo.drcomoguibinder.DrcomoGuiBinder
-api-version: '1.20'
+api-version: '1.18'
 depend:
   - DrcomoCoreLib
+softdepend:
+  - PlaceholderAPI
+description: '可配置的 GUI 绑定与占位符插件'
 commands:
-  guibinder:
+  drcomoguibinder:
     description: 'DrcomoGuiBinder 主指令'
     usage: '/<command> help'
-    aliases: [dgb, drgb]
-    permission: drcomoguibinder.command
+    aliases: [guibinder, dgb]
+permissions:
+  drcomo.guibinder.open:
+    description: '允许打开任意主界面'
+    default: true
+  drcomo.guibinder.open.others:
+    description: '允许为其他玩家打开界面'
+    default: op
+  drcomo.guibinder.clear:
+    description: '允许清除绑定记录'
+    default: op
+  drcomo.guibinder.bind:
+    description: '允许手动绑定指定条目'
+    default: op
+  drcomo.guibinder.reload:
+    description: '允许重载插件配置'
+    default: op
+  drcomo.guibinder.save:
+    description: '允许手动触发数据持久化'
+    default: op
+  drcomo.guibinder.diagnostics:
+    description: '允许查看运行诊断信息'
+    default: op
