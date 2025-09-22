@@ -1,0 +1,4 @@
+name: DrcomoGuiBinder
+version: '${project.version}'
+main: cn.drcomo.drcomoguibinder.DrcomoGuiBinder
+api-version: '1.20'
