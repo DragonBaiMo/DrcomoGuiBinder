@@ -73,7 +73,8 @@ public final class GuiListener implements Listener {
           subGuiController.handleClose(player);
         }
       }
-      sessionManager.closeSession(player);
+      // 移除会导致无限递归的 closeSession 调用
+      // sessionManager.closeSession(player);
     }
   }
 }

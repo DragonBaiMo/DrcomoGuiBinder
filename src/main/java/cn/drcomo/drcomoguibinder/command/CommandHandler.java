@@ -88,7 +88,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
 
   private boolean handleOpen(CommandSender sender, String[] args) {
     if (args.length < 2) {
-      messageService.send(sender, "messages.command-usage-open");
+      messageService.send(sender, "messages.command-usage-open", Map.of());
       return true;
     }
     String mainId = args[1];
@@ -99,7 +99,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
     Player target;
     if (args.length >= 3) {
       if (!sender.hasPermission("drcomo.guibinder.open.others")) {
-        messageService.send(sender, "messages.no-permission");
+        messageService.send(sender, "messages.no-permission", Map.of());
         return true;
       }
       target = Bukkit.getPlayer(args[2]);
@@ -109,12 +109,12 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
       }
     } else {
       if (!(sender instanceof Player player)) {
-        messageService.send(sender, "messages.need-player");
+        messageService.send(sender, "messages.need-player", Map.of());
         return true;
       }
       target = player;
       if (!sender.hasPermission("drcomo.guibinder.open")) {
-        messageService.send(sender, "messages.no-permission");
+        messageService.send(sender, "messages.no-permission", Map.of());
         return true;
       }
     }
@@ -127,11 +127,11 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
 
   private boolean handleClear(CommandSender sender, String[] args) {
     if (!sender.hasPermission("drcomo.guibinder.clear")) {
-      messageService.send(sender, "messages.no-permission");
+      messageService.send(sender, "messages.no-permission", Map.of());
       return true;
     }
     if (args.length < 3) {
-      messageService.send(sender, "messages.command-usage-clear");
+      messageService.send(sender, "messages.command-usage-clear", Map.of());
       return true;
     }
     String mainId = args[1];
@@ -158,7 +158,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
     } else if (sender instanceof Player player) {
       target = player;
     } else {
-      messageService.send(sender, "messages.need-player");
+      messageService.send(sender, "messages.need-player", Map.of());
       return true;
     }
     UUID uuid = target.getUniqueId();
@@ -190,11 +190,11 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
 
   private boolean handleBind(CommandSender sender, String[] args) {
     if (!sender.hasPermission("drcomo.guibinder.bind")) {
-      messageService.send(sender, "messages.no-permission");
+      messageService.send(sender, "messages.no-permission", Map.of());
       return true;
     }
     if (args.length < 5) {
-      messageService.send(sender, "messages.command-usage-bind");
+      messageService.send(sender, "messages.command-usage-bind", Map.of());
       return true;
     }
     String mainId = args[1];
@@ -218,7 +218,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
     } else if (sender instanceof Player player) {
       target = player;
     } else {
-      messageService.send(sender, "messages.need-player");
+      messageService.send(sender, "messages.need-player", Map.of());
       return true;
     }
     SubGuiDef sub = configService.getSub(subId);
@@ -273,7 +273,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
     } else if (sender instanceof Player player) {
       target = player;
     } else {
-      messageService.send(sender, "messages.need-player");
+      messageService.send(sender, "messages.need-player", Map.of());
       return true;
     }
     String targetName = target.getName() != null ? target.getName() : target.getUniqueId().toString();
@@ -281,7 +281,7 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
     bindings.sort(Comparator.comparing(Binding::getMainId).thenComparingInt(Binding::getSlot));
     messageService.send(sender, "messages.list-header", Map.of("player", targetName));
     if (bindings.isEmpty()) {
-      messageService.send(sender, "messages.list-empty");
+      messageService.send(sender, "messages.list-empty", Map.of());
       return true;
     }
     for (Binding binding : bindings) {
@@ -294,35 +294,35 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
 
   private boolean handleReload(CommandSender sender) {
     if (!sender.hasPermission("drcomo.guibinder.reload")) {
-      messageService.send(sender, "messages.no-permission");
+      messageService.send(sender, "messages.no-permission", Map.of());
       return true;
     }
     configService.reloadAll();
     messageService.reloadLanguages();
     placeholderExpansion.registerAll();
-    messageService.send(sender, "messages.reload-success");
+    messageService.send(sender, "messages.reload-success", Map.of());
     return true;
   }
 
   private boolean handleSave(CommandSender sender) {
     if (!sender.hasPermission("drcomo.guibinder.save")) {
-      messageService.send(sender, "messages.no-permission");
+      messageService.send(sender, "messages.no-permission", Map.of());
       return true;
     }
     bindingService.flush().whenComplete((v, ex) -> {
       if (ex != null) {
         logger.error("刷新写队列失败", ex);
-        messageService.send(sender, "messages.save-failed");
+        messageService.send(sender, "messages.save-failed", Map.of());
         return;
       }
-      messageService.send(sender, "messages.save-success");
+      messageService.send(sender, "messages.save-success", Map.of());
     });
     return true;
   }
 
   private boolean handleDiagnostics(CommandSender sender) {
     if (!sender.hasPermission("drcomo.guibinder.diagnostics")) {
-      messageService.send(sender, "messages.no-permission");
+      messageService.send(sender, "messages.no-permission", Map.of());
       return true;
     }
     int cacheSize = bindingService.getCacheSize();
@@ -335,14 +335,14 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
   }
 
   private void sendHelp(CommandSender sender) {
-    messageService.send(sender, "messages.help-header");
-    messageService.send(sender, "messages.help-open");
-    messageService.send(sender, "messages.help-clear");
-    messageService.send(sender, "messages.help-bind");
-    messageService.send(sender, "messages.help-list");
-    messageService.send(sender, "messages.help-reload");
-    messageService.send(sender, "messages.help-save");
-    messageService.send(sender, "messages.help-diagnostics");
+    messageService.send(sender, "messages.help-header", Map.of());
+    messageService.send(sender, "messages.help-open", Map.of());
+    messageService.send(sender, "messages.help-clear", Map.of());
+    messageService.send(sender, "messages.help-bind", Map.of());
+    messageService.send(sender, "messages.help-list", Map.of());
+    messageService.send(sender, "messages.help-reload", Map.of());
+    messageService.send(sender, "messages.help-save", Map.of());
+    messageService.send(sender, "messages.help-diagnostics", Map.of());
   }
 
   @Override
@@ -414,8 +414,9 @@ public final class CommandHandler implements CommandExecutor, TabCompleter {
 
   private List<String> filter(List<String> source, String prefix) {
     if (prefix == null || prefix.isEmpty()) {
-      source.sort(String::compareToIgnoreCase);
-      return source;
+      List<String> result = new ArrayList<>(source);
+      result.sort(String::compareToIgnoreCase);
+      return result;
     }
     List<String> result = new ArrayList<>();
     for (String s : source) {

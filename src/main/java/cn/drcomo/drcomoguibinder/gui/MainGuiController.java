@@ -31,6 +31,7 @@ import org.bukkit.inventory.ItemStack;
 public final class MainGuiController extends PaginatedGui {
 
   private final GUISessionManager sessions;
+  private final GuiActionDispatcher dispatcher;
   private final GuiConfigService configService;
   private final BindingService bindingService;
   private final ItemTemplateRenderer renderer;
@@ -52,6 +53,7 @@ public final class MainGuiController extends PaginatedGui {
       long clickCooldownMs) {
     super(sessions, dispatcher, 54, 45, 53);
     this.sessions = sessions;
+    this.dispatcher = dispatcher;
     this.configService = configService;
     this.bindingService = bindingService;
     this.renderer = renderer;
@@ -119,7 +121,7 @@ public final class MainGuiController extends PaginatedGui {
       return;
     }
     String sessionId = sessionId(player);
-    getDispatcher().unregister(sessionId);
+    dispatcher.unregister(sessionId);
     inv.clear();
     for (MainSlotDef slotDef : def.getSlots()) {
       ItemStack item = resolveSlotDisplay(player, def, slotDef);
@@ -162,7 +164,7 @@ public final class MainGuiController extends PaginatedGui {
         subGuiController.openSub(player, sub);
       }
     };
-    getDispatcher().registerForSlot(sessionId, slotDef.getSlot(), action);
+    dispatcher.registerForSlot(sessionId, slotDef.getSlot(), action);
   }
 
   private ItemStack resolveSlotDisplay(Player player, MainGuiDef mainDef, MainSlotDef slotDef) {

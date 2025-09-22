@@ -8,15 +8,6 @@ import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.config.model.MainGuiDef;
 import cn.drcomo.drcomoguibinder.config.model.MainSlotDef;
 import cn.drcomo.drcomoguibinder.config.model.SubGuiDef;
-import java.io.IOException;
-import java.nio.file.ClosedWatchServiceException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,7 +18,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -46,9 +36,6 @@ public final class GuiConfigService {
   private final AtomicReference<Map<String, SubGuiDef>> subDefs = new AtomicReference<>(Map.of());
   private final List<Runnable> reloadListeners = new CopyOnWriteArrayList<>();
 
-  private DirectoryWatcher mainWatcher;
-  private DirectoryWatcher subWatcher;
-
   public GuiConfigService(Plugin plugin, YamlUtil yamlUtil, DebugUtil logger,
       AsyncTaskManager asyncManager) {
     this.plugin = plugin;
@@ -61,7 +48,6 @@ public final class GuiConfigService {
     yamlUtil.ensureDirectory("Main");
     yamlUtil.ensureDirectory("Sub");
     reloadAll();
-    startWatchers();
   }
 
   public void reloadAll() {
@@ -98,14 +84,7 @@ public final class GuiConfigService {
   }
 
   public void shutdown() {
-    if (mainWatcher != null) {
-      mainWatcher.close();
-      mainWatcher = null;
-    }
-    if (subWatcher != null) {
-      subWatcher.close();
-      subWatcher = null;
-    }
+    // 保留占位：当前不启用自动文件监听，无需释放监听资源
   }
 
   private void notifyReloadListeners() {
@@ -173,7 +152,7 @@ public final class GuiConfigService {
     List<Map<?, ?>> slotList = yaml.getMapList("slots");
     List<MainSlotDef> slots = new ArrayList<>();
     for (Map<?, ?> map : slotList) {
-      int slotIndex = ((Number) map.getOrDefault("slot", slots.size())).intValue();
+      int slotIndex = getInt(map.get("slot"), slots.size());
       String subId = Objects.toString(map.get("sub"), null);
       ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
       if (displayEmpty == null || displayEmpty.isEmpty()) {
@@ -208,7 +187,7 @@ public final class GuiConfigService {
   }
 
   private EntryDef parseEntry(String subId, int index, Map<?, ?> map) {
-    int slot = ((Number) map.getOrDefault("slot", index)).intValue();
+    int slot = getInt(map.get("slot"), index);
     String key = Objects.toString(map.get("key"), "entry_" + index);
     String value = Objects.toString(map.get("value"), "");
     ItemTemplate display = parseItemTemplate(map.get("display"));
@@ -227,6 +206,16 @@ public final class GuiConfigService {
       }
     }
     return new EntryDef(slot, key, value, display, overrides);
+  }
+
+  private static int getInt(Object val, int def) {
+    if (val == null) return def;
+    if (val instanceof Number n) return n.intValue();
+    try {
+      return Integer.parseInt(String.valueOf(val));
+    } catch (Exception e) {
+      return def;
+    }
   }
 
   private ItemTemplate parseItemTemplate(Object sectionObj) {
@@ -278,79 +267,5 @@ public final class GuiConfigService {
       builder.nbt(nbt);
     }
     return builder.build();
-  }
-
-  private void startWatchers() {
-    Path mainPath = plugin.getDataFolder().toPath().resolve("Main");
-    Path subPath = plugin.getDataFolder().toPath().resolve("Sub");
-    try {
-      mainWatcher = new DirectoryWatcher(mainPath, this::reloadAll);
-      subWatcher = new DirectoryWatcher(subPath, this::reloadAll);
-      asyncManager.getExecutor().submit(mainWatcher);
-      asyncManager.getExecutor().submit(subWatcher);
-    } catch (IOException ex) {
-      logger.error("初始化配置热更新监听失败", ex);
-    }
-  }
-
-  private final class DirectoryWatcher implements Runnable {
-
-    private final Path directory;
-    private final WatchService watchService;
-    private volatile boolean running = true;
-    private final Runnable onReload;
-
-    private DirectoryWatcher(Path directory, Runnable onReload) throws IOException {
-      this.directory = directory;
-      this.onReload = onReload;
-      this.watchService = FileSystems.getDefault().newWatchService();
-      Files.createDirectories(directory);
-      directory.register(watchService, StandardWatchEventKinds.ENTRY_CREATE,
-          StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
-    }
-
-    @Override
-    public void run() {
-      while (running) {
-        WatchKey key;
-        try {
-          key = watchService.take();
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-          return;
-        } catch (ClosedWatchServiceException ex) {
-          return;
-        } catch (Exception ex) {
-          logger.error("配置文件监听异常中断", ex);
-          return;
-        }
-        boolean trigger = false;
-        for (WatchEvent<?> event : key.pollEvents()) {
-          Object context = event.context();
-          if (context instanceof Path path) {
-            Path changed = directory.resolve(path);
-            if (changed.toString().endsWith(".yml")) {
-              trigger = true;
-            }
-          }
-        }
-        if (trigger) {
-          Bukkit.getScheduler().runTask(plugin, onReload);
-        }
-        boolean valid = key.reset();
-        if (!valid) {
-          break;
-        }
-      }
-    }
-
-    private void close() {
-      running = false;
-      try {
-        watchService.close();
-      } catch (IOException ex) {
-        logger.warn("关闭配置监听时出现异常", ex);
-      }
-    }
   }
 }

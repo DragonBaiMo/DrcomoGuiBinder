@@ -70,6 +70,7 @@
       <groupId>cn.drcomo</groupId>
       <artifactId>DrcomoCoreLib</artifactId>
       <version>1.0</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>

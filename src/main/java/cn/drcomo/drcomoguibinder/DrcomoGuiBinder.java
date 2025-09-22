@@ -44,9 +44,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
   private BindingRepository bindingRepository;
   private BindingService bindingService;
   private ItemTemplateRenderer itemRenderer;
-  private PlaceholderAPIUtil valuePlaceholder;
-  private PlaceholderAPIUtil keyPlaceholder;
-  private PlaceholderAPIUtil displayPlaceholder;
+  private PlaceholderAPIUtil placeholderUtil;
   private BinderPlaceholderExpansion placeholderExpansion;
   private CommandHandler commandHandler;
   private GUISessionManager guiSessionManager;
@@ -93,12 +91,12 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     Builder builder = AsyncTaskManager.newBuilder(this, logger).poolSize(writerThreads);
     this.asyncManager = builder.build();
 
-    this.valuePlaceholder = new PlaceholderAPIUtil(this, placeholderPrefix);
-    this.keyPlaceholder = new PlaceholderAPIUtil(this, placeholderPrefix + "k");
-    this.displayPlaceholder = new PlaceholderAPIUtil(this, placeholderPrefix + "d");
+    this.placeholderUtil = new PlaceholderAPIUtil(this, placeholderPrefix);
 
-    this.messageService = new MessageService(this, logger, yamlUtil, valuePlaceholder,
+    this.messageService = new MessageService(this, logger, yamlUtil, placeholderUtil,
         "lang", "messages.");
+    // 设置默认占位符分隔符为 {} 以匹配 lang.yml 中的占位符格式
+    this.messageService.setDefaultCustomDelimiters("{", "}");
 
     this.guiSessionManager = new GUISessionManager(this, logger, messageService, sessionTimeout);
     GuiManager guiManager = new GuiManager(logger);
@@ -121,17 +119,17 @@ public final class DrcomoGuiBinder extends JavaPlugin {
       return;
     }
 
-    this.itemRenderer = new ItemTemplateRenderer(logger, valuePlaceholder, getName());
+    this.itemRenderer = new ItemTemplateRenderer(logger, placeholderUtil, getName());
 
-    this.placeholderExpansion = new BinderPlaceholderExpansion(valuePlaceholder, keyPlaceholder,
-        displayPlaceholder, configService, bindingService, itemRenderer, !resolveAtBind, logger);
+    this.placeholderExpansion = new BinderPlaceholderExpansion(placeholderUtil,
+        configService, bindingService, itemRenderer, !resolveAtBind, logger);
 
     this.mainGuiController = new MainGuiController(guiSessionManager, guiDispatcher, configService,
         bindingService, itemRenderer, bindSessionManager, logger, messageService,
         !resolveAtBind, clickCooldownMs);
     this.subGuiController = new SubGuiController(guiSessionManager, guiDispatcher, configService,
         bindingService, itemRenderer, bindSessionManager, logger, messageService,
-        valuePlaceholder, resolveAtBind, mainGuiController, this);
+        placeholderUtil, resolveAtBind, mainGuiController, this);
     this.mainGuiController.setSubGuiController(subGuiController);
     this.subGuiController.setMainGuiController(mainGuiController);
 
@@ -148,7 +146,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     });
 
     this.commandHandler = new CommandHandler(this, configService, bindingService,
-        mainGuiController, messageService, placeholderExpansion, logger, valuePlaceholder,
+        mainGuiController, messageService, placeholderExpansion, logger, placeholderUtil,
         resolveAtBind);
     Objects.requireNonNull(getCommand("drcomoguibinder"), "drcomoguibinder 命令未在 plugin.yml 中声明")
         .setExecutor(commandHandler);

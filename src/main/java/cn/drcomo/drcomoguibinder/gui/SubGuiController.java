@@ -32,6 +32,7 @@ import org.bukkit.plugin.Plugin;
 public final class SubGuiController extends PaginatedGui {
 
   private final GUISessionManager sessions;
+  private final GuiActionDispatcher dispatcher;
   private final GuiConfigService configService;
   private final BindingService bindingService;
   private final ItemTemplateRenderer renderer;
@@ -53,6 +54,7 @@ public final class SubGuiController extends PaginatedGui {
       MainGuiController mainGuiController, Plugin plugin) {
     super(sessions, dispatcher, 54, 45, 53);
     this.sessions = sessions;
+    this.dispatcher = dispatcher;
     this.configService = configService;
     this.bindingService = bindingService;
     this.renderer = renderer;
@@ -102,7 +104,7 @@ public final class SubGuiController extends PaginatedGui {
       return;
     }
     String sessionId = sessionId(player);
-    getDispatcher().unregister(sessionId);
+    dispatcher.unregister(sessionId);
     inv.clear();
     for (EntryDef entry : def.getEntries()) {
       ItemTemplate template = entry.getDisplay();
@@ -154,7 +156,7 @@ public final class SubGuiController extends PaginatedGui {
         });
       });
     };
-    getDispatcher().registerForSlot(sessionId, entry.getSlot(), action);
+    dispatcher.registerForSlot(sessionId, entry.getSlot(), action);
   }
 
   private SubGuiDef currentDefinition(Player player) {

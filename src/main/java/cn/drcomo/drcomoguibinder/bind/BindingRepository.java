@@ -65,28 +65,28 @@ public final class BindingRepository {
         .executeUpdateAsync(sql, binding.getPlayerUuid().toString(), binding.getMainId(),
             binding.getSlot(), binding.getSubId(), binding.getEntryKey(), binding.getEntryValue(),
             binding.getUpdatedAt())
-        .thenApply(rows -> null)
+        .thenApply(rows -> (Void) null)
         .exceptionally(ex -> {
           logger.error("写入绑定记录失败", ex);
-          throw new IllegalStateException(ex);
+          throw new RuntimeException(ex);
         });
   }
 
   public CompletableFuture<Void> delete(UUID playerUuid, String mainId, int slot) {
     String sql = "DELETE FROM gui_bindings WHERE player_uuid=? AND main_id=? AND slot_index=?";
-    return database.executeUpdateAsync(sql, playerUuid.toString(), mainId, slot).thenApply(rows -> null)
+    return database.executeUpdateAsync(sql, playerUuid.toString(), mainId, slot).thenApply(rows -> (Void) null)
         .exceptionally(ex -> {
           logger.error("删除绑定失败", ex);
-          throw new IllegalStateException(ex);
+          throw new RuntimeException(ex);
         });
   }
 
   public CompletableFuture<Void> deleteAllForPlayer(UUID playerUuid) {
     String sql = "DELETE FROM gui_bindings WHERE player_uuid=?";
-    return database.executeUpdateAsync(sql, playerUuid.toString()).thenApply(rows -> null)
+    return database.executeUpdateAsync(sql, playerUuid.toString()).thenApply(rows -> (Void) null)
         .exceptionally(ex -> {
           logger.error("删除玩家全部绑定失败", ex);
-          throw new IllegalStateException(ex);
+          throw new RuntimeException(ex);
         });
   }
 
