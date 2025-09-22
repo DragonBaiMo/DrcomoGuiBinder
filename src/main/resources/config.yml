@@ -1,0 +1,14 @@
+# DrcomoGuiBinder 主配置
+logLevel: INFO
+resolveAtBind: false
+clickCooldownMs: 300
+sessionTimeoutMs: 90000
+
+database:
+  file: data.db
+
+async:
+  writerThreads: 2
+
+placeholders:
+  prefix: dgb

@@ -1,0 +1,22 @@
+id: demo_titles
+title: '&8称号选择'
+size: 27
+entries:
+  - slot: 10
+    key: brave
+    value: '%player_name% 的勇者'
+    display:
+      material: NAME_TAG
+      name: '&6勇者称号'
+      lore:
+        - '&7显示内容: &f{value}'
+        - '&7实时解析玩家名称'
+  - slot: 12
+    key: scholar
+    value: '%player_name% 的智者'
+    display:
+      material: BOOK
+      name: '&b智者称号'
+      lore:
+        - '&7显示内容: &f{value}'
+        - '&7适合辅助定位'
