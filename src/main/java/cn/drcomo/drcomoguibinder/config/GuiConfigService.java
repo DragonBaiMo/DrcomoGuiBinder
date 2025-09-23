@@ -154,6 +154,17 @@ public final class GuiConfigService {
     for (Map<?, ?> map : slotList) {
       int slotIndex = getInt(map.get("slot"), slots.size());
       String subId = Objects.toString(map.get("sub"), null);
+      String slotId = null;
+      Object slotIdObj = map.get("id");
+      if (slotIdObj != null) {
+        slotId = Objects.toString(slotIdObj, null);
+        if (slotId != null) {
+          slotId = slotId.trim();
+          if (slotId.isEmpty()) {
+            slotId = null;
+          }
+        }
+      }
       ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
       if (displayEmpty == null || displayEmpty.isEmpty()) {
         displayEmpty = ItemTemplate.builder()
@@ -161,7 +172,7 @@ public final class GuiConfigService {
             .name("&7未绑定槽位")
             .build();
       }
-      slots.add(new MainSlotDef(slotIndex, subId, displayEmpty));
+      slots.add(new MainSlotDef(slotIndex, subId, displayEmpty, slotId));
     }
     return new MainGuiDef(id, title, size, slots);
   }
