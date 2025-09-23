@@ -68,7 +68,7 @@ public final class MySQLProvider implements DatabaseProvider {
     @Override
     public void connect() throws SQLException {
         try {
-            String url = String.format("jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8mb4&useSSL=false&serverTimezone=UTC",
+            String url = String.format("jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC",
                     host, port, database);
 
             this.connection = DriverManager.getConnection(url, username, password);
@@ -118,12 +118,23 @@ public final class MySQLProvider implements DatabaseProvider {
         }
 
         try {
+            // 显式切换到目标数据库，避免在未选定 schema 下执行建表
+            try (var useStmt = connection.prepareStatement("USE `" + database + "`")) {
+                useStmt.execute();
+            }
             for (String scriptName : schemaScripts) {
                 logger.debug("执行 MySQL 初始化脚本: " + scriptName);
                 executeSchemaScript(scriptName);
             }
 
             connection.commit();
+
+            // 初始化后进行一次表存在性校验，尽早发现问题
+            if (!checkTableExists("gui_bindings")) {
+                logger.error("初始化后未找到目标表: " + database + ".gui_bindings");
+                throw new SQLException("初始化脚本执行后仍未检测到表: gui_bindings");
+            }
+
             logger.info("MySQL 表结构初始化完成");
         } catch (Exception ex) {
             try {
@@ -298,9 +309,58 @@ public final class MySQLProvider implements DatabaseProvider {
      * 执行初始化脚本
      */
     private void executeSchemaScript(String scriptName) throws Exception {
-        // 这里应该从插件资源中读取 SQL 脚本并执行
-        // 为了简化，暂时跳过具体实现
-        logger.debug("执行 MySQL 脚本: " + scriptName + "（实现待补充）");
+        logger.debug("开始执行 MySQL 脚本: " + scriptName);
+        
+        // 从插件资源中读取SQL脚本
+        try (var inputStream = plugin.getResource(scriptName)) {
+            if (inputStream == null) {
+                throw new Exception("找不到SQL脚本文件: " + scriptName);
+            }
+            
+            // 读取脚本内容
+            String scriptContent = new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            
+            // 按分号分割SQL语句（忽略注释行）
+            String[] statements = scriptContent.split(";");
+            
+            for (String statement : statements) {
+                String trimmed = statement.trim();
+                // 跳过空语句和注释行
+                if (trimmed.isEmpty() || trimmed.startsWith("--")) {
+                    continue;
+                }
+                
+                logger.debug("执行SQL语句: " + trimmed);
+                try (var stmt = connection.prepareStatement(trimmed)) {
+                    stmt.executeUpdate();
+                }
+            }
+            
+            logger.info("MySQL 脚本执行完成: " + scriptName);
+            
+        } catch (Exception ex) {
+            logger.error("执行 MySQL 脚本失败: " + scriptName, ex);
+            throw new Exception("无法执行SQL脚本: " + scriptName, ex);
+        }
+    }
+
+    /**
+     * 检查指定表是否存在于当前数据库中
+     */
+    private boolean checkTableExists(String tableName) {
+        String sql = "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
+        try (var stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, database);
+            stmt.setString(2, tableName);
+            try (var rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (Exception ex) {
+            logger.warn("检查表是否存在时发生异常: " + ex.getMessage());
+        }
+        return false;
     }
 
     /**

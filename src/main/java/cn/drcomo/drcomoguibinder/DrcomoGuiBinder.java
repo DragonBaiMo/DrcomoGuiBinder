@@ -24,7 +24,6 @@ import cn.drcomo.drcomoguibinder.gui.SubGuiController;
 import cn.drcomo.drcomoguibinder.gui.session.BindSession;
 import cn.drcomo.drcomoguibinder.papi.BinderPlaceholderExpansion;
 import cn.drcomo.drcomoguibinder.template.ItemTemplateRenderer;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
@@ -118,7 +117,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
 
     try {
       this.databaseProvider = DatabaseProviderFactory.createProvider(this, logger, asyncManager, 
-          databaseConfig, List.of("schema.sql"));
+          databaseConfig, null);
       this.bindingRepository = new BindingRepository(databaseProvider, logger);
       bindingRepository.connect();
       this.bindingService = new BindingService(bindingRepository, asyncManager, logger);

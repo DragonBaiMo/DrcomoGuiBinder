@@ -4,7 +4,6 @@ import cn.drcomo.corelib.color.ColorUtil;
 import cn.drcomo.corelib.hook.placeholder.PlaceholderAPIUtil;
 import cn.drcomo.corelib.nbt.NBTUtil;
 import cn.drcomo.corelib.util.DebugUtil;
-import cn.drcomo.corelib.util.SkullUtil;
 import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.util.BinderNbtKeyHandler;
 import java.util.ArrayList;
@@ -28,14 +27,13 @@ public final class ItemTemplateRenderer {
   private final PlaceholderAPIUtil placeholderUtil;
   private final DebugUtil logger;
   private final NBTUtil nbtUtil;
-  private final SkullUtil skullUtil;
+  // 需求明确：不渲染玩家头颅纹理，故不再引入 SkullUtil
 
   public ItemTemplateRenderer(DebugUtil logger, PlaceholderAPIUtil placeholderUtil,
       String pluginId) {
     this.placeholderUtil = placeholderUtil;
     this.logger = logger;
     this.nbtUtil = new NBTUtil(new BinderNbtKeyHandler(pluginId), logger);
-    this.skullUtil = new SkullUtil(logger);
   }
 
   public ItemStack render(ItemTemplate template, Player player, Map<String, String> replacements,
@@ -102,15 +100,11 @@ public final class ItemTemplateRenderer {
       logger.warn("无法识别的材质: " + template.getMaterial());
       material = Material.STONE;
     }
-    ItemStack stack;
-    if (material == Material.PLAYER_HEAD && template.getSkullTexture() != null) {
-      stack = template.getSkullTexture().startsWith("http")
-          ? skullUtil.fromUrl(template.getSkullTexture())
-          : skullUtil.fromBase64(template.getSkullTexture());
-      stack.setAmount(Math.max(1, template.getAmount()));
-      return stack;
+    if (material == Material.PLAYER_HEAD) {
+      // 明确需求：不进行纹理渲染，无论是否提供 skullTexture 均返回普通玩家头
+      return new ItemStack(Material.PLAYER_HEAD, Math.max(1, template.getAmount()));
     }
-    stack = new ItemStack(material, Math.max(1, template.getAmount()));
+    ItemStack stack = new ItemStack(material, Math.max(1, template.getAmount()));
     return stack;
   }
 
