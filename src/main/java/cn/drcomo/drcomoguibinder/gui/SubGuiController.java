@@ -115,8 +115,8 @@ public final class SubGuiController extends PaginatedGui {
         continue; // 不满足显示条件，跳过该条目
       }
       
-      // 根据MainGUI的ID解析正确的display模板（支持overrides）
-      ItemTemplate template = entry.resolveDisplay(session.getMainId());
+      // 子界面始终使用默认展示模板
+      ItemTemplate template = entry.getDisplay();
       Map<String, String> placeholders = new HashMap<>();
       placeholders.put("key", entry.getKey());
       placeholders.put("value", entry.getValue());
