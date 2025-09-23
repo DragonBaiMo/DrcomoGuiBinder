@@ -1,0 +1,293 @@
+id: classchoose
+title: '&8职业选择'
+size: 27
+entries:
+  - slot: 10
+    conditions:
+      # display: # 没这个权限甚至不会显示
+      #   - "%luckperms_check_permission_necl.class.CBZ% == yes"
+      choose:
+        - "%luckperms_check_permission_necl.class.CBZ% == yes"
+    key: CBZ
+    value: '&#78eefb苍&#a7effc庇&#d6f0fd者'
+    display:
+      material: IRON_SWORD
+      name: '&#78eefb苍&#a7effc庇&#d6f0fd者'
+      lore:
+      - "&7需要: 拥有苍庇者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#78eefb苍&#a7effc庇&#d6f0fd者'
+          glow: true
+
+  - slot: 11
+    conditions: 
+      choose:
+        - "%luckperms_check_permission_necl.class.CTZ% == yes"
+    key: CTZ
+    value: '&#2297fb掣&#68c5fc霆&#adf3fd者'
+    display:
+      material: IRON_SWORD
+      name: '&#2297fb掣&#68c5fc霆&#adf3fd者'
+      lore:
+      - "&7需要: 拥有掣霆者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#2297fb掣&#68c5fc霆&#adf3fd者'
+          glow: true
+
+  - slot: 12
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.FZZ% == yes"
+    key: FZZ
+    value: '&#eefa63风&#d0fd6c纵&#b2ff75者'
+    display:
+      material: IRON_SWORD
+      name: '&#eefa63风&#d0fd6c纵&#b2ff75者'
+      lore:
+      - "&7需要: 拥有风纵者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#eefa63风&#d0fd6c纵&#b2ff75者'
+          glow: true
+
+  - slot: 13
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.HLZ% == yes"
+    key: HLZ
+    value: '&#8dff92灵&#6afac9唤&#47f4ff者'
+    display:
+      material: IRON_SWORD
+      name: '&#8dff92灵&#6afac9唤&#47f4ff者'
+      lore:
+      - "&7需要: 拥有灵唤者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#8dff92灵&#6afac9唤&#47f4ff者'
+          glow: true
+
+  - slot: 14
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.LHZ% == yes"
+    key: LHZ
+    value: '&#8dff92灵&#6afac9唤&#47f4ff者'
+    display:
+      material: IRON_SWORD
+      name: '&#8dff92灵&#6afac9唤&#47f4ff者'
+      lore:
+      - "&7需要: 拥有灵唤者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#8dff92灵&#6afac9唤&#47f4ff者'
+          glow: true
+
+  - slot: 15
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.LSZ% == yes"
+    key: LSZ
+    value: '&#7351f9裂&#6654c1神&#585789者'
+    display:
+      material: IRON_SWORD
+      name: '&#7351f9裂&#6654c1神&#585789者'
+      lore:
+      - "&7需要: 拥有裂神者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#7351f9裂&#6654c1神&#585789者'
+          glow: true
+
+  - slot: 16
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.LWZ% == yes"
+    key: LWZ
+    value: '&#65FFB4轮&#89F996舞&#ACF277者'
+    display:
+      material: IRON_SWORD
+      name: '&#65FFB4轮&#89F996舞&#ACF277者'
+      lore:
+      - "&7需要: 拥有轮舞者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#65FFB4轮&#89F996舞&#ACF277者'
+          glow: true
+
+  - slot: 17
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.SHZ% == yes"
+    key: SHZ
+    value: '&#fff281升&#fff298华&#fff2af者'
+    display:
+      material: IRON_SWORD
+      name: '&#fff281升&#fff298华&#fff2af者'
+      lore:
+      - "&7需要: 拥有升华者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#fff281升&#fff298华&#fff2af者'
+          glow: true
+
+  - slot: 18
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.SYZ% == yes"
+    key: SYZ
+    value: '&#fb792a圣&#fc9f36谕&#fdc541者'
+    display:
+      material: IRON_SWORD
+      name: '&#fb792a圣&#fc9f36谕&#fdc541者'
+      lore:
+      - "&7需要: 拥有圣谕者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#fb792a圣&#fc9f36谕&#fdc541者'
+          glow: true
+
+  - slot: 19
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.TMZ% == yes"
+    key: TMZ
+    value: '&#fd9e3f叹&#df7920幕&#c05400者'
+    display:
+      material: IRON_SWORD
+      name: '&#fd9e3f叹&#df7920幕&#c05400者'
+      lore:
+      - "&7需要: 拥有叹幕者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#fd9e3f叹&#df7920幕&#c05400者'
+          glow: true
+
+  - slot: 20
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.XWZ% == yes"
+    key: XWZ
+    value: '&#86c5ff械&#8fe2f9武&#98fff3者'
+    display:
+      material: IRON_SWORD
+      name: '&#86c5ff械&#8fe2f9武&#98fff3者'
+      lore:
+      - "&7需要: 拥有械武者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#86c5ff械&#8fe2f9武&#98fff3者'
+          glow: true
+
+  - slot: 21
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.YXZ% == yes"
+    key: YXZ
+    value: '&#9e96ff影&#b1bdff行&#c4e3ff者'
+    display:
+      material: IRON_SWORD
+      name: '&#9e96ff影&#b1bdff行&#c4e3ff者'
+      lore:
+      - "&7需要: 拥有影行者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#9e96ff影&#b1bdff行&#c4e3ff者'
+          glow: true
+
+  - slot: 22
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.YYZ% == yes"
+    key: YYZ
+    value: '&#ff6581弋&#ff8997御&#ffadad者'
+    display:
+      material: IRON_SWORD
+      name: '&#ff6581弋&#ff8997御&#ffadad者'
+      lore:
+      - "&7需要: 拥有弋御者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#ff6581弋&#ff8997御&#ffadad者'
+          glow: true
+
+  - slot: 23
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.YZZ% == yes"
+    key: YZZ
+    value: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
+    display:
+      material: IRON_SWORD
+      name: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
+      lore:
+      - "&7需要: 拥有驭泽者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
+          glow: true
+
+  - slot: 24
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.ZRZ% == yes"
+    key: ZRZ
+    value: '&#ff42b3铸&#ff3480刃&#ff264d者'
+    display:
+      material: IRON_SWORD
+      name: '&#ff42b3铸&#ff3480刃&#ff264d者'
+      lore:
+      - "&7需要: 拥有铸刃者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#ff42b3铸&#ff3480刃&#ff264d者'
+          glow: true
+
+  - slot: 25
+    conditions:
+      choose:
+        - "%luckperms_check_permission_necl.class.ZYZ% == yes"
+    key: ZYZ
+    value: '&#ff63ef坠&#e287f7渊&#c5aaff者'
+    display:
+      material: IRON_SWORD
+      name: '&#ff63ef坠&#e287f7渊&#c5aaff者'
+      lore:
+      - "&7需要: 拥有坠渊者权限才能选择"
+    overrides:
+      class:
+        display:
+          material: stone
+          name: '&#ff63ef坠&#e287f7渊&#c5aaff者'
+          glow: true

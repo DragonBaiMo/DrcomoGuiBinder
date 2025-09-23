@@ -5,6 +5,7 @@ import cn.drcomo.corelib.gui.GUISessionManager;
 import cn.drcomo.corelib.gui.PaginatedGui;
 import cn.drcomo.corelib.gui.interfaces.ClickAction;
 import cn.drcomo.corelib.hook.placeholder.PlaceholderAPIUtil;
+import cn.drcomo.corelib.hook.placeholder.parse.PlaceholderConditionEvaluator;
 import cn.drcomo.corelib.util.DebugUtil;
 import cn.drcomo.drcomoguibinder.bind.Binding;
 import cn.drcomo.drcomoguibinder.bind.BindingService;
@@ -40,6 +41,7 @@ public final class SubGuiController extends PaginatedGui {
   private final DebugUtil logger;
   private final cn.drcomo.corelib.message.MessageService messageService;
   private final PlaceholderAPIUtil placeholderUtil;
+  private final PlaceholderConditionEvaluator conditionEvaluator;
   private final boolean resolveValueAtBind;
   private MainGuiController mainGuiController;
   private final Plugin plugin;
@@ -50,8 +52,8 @@ public final class SubGuiController extends PaginatedGui {
       ItemTemplateRenderer renderer,
       cn.drcomo.corelib.gui.session.PlayerSessionManager<BindSession> bindSessions,
       DebugUtil logger, cn.drcomo.corelib.message.MessageService messageService,
-      PlaceholderAPIUtil placeholderUtil, boolean resolveValueAtBind,
-      MainGuiController mainGuiController, Plugin plugin) {
+      PlaceholderAPIUtil placeholderUtil, PlaceholderConditionEvaluator conditionEvaluator,
+      boolean resolveValueAtBind, MainGuiController mainGuiController, Plugin plugin) {
     super(sessions, dispatcher, 54, 45, 53);
     this.sessions = sessions;
     this.dispatcher = dispatcher;
@@ -62,6 +64,7 @@ public final class SubGuiController extends PaginatedGui {
     this.logger = logger;
     this.messageService = messageService;
     this.placeholderUtil = placeholderUtil;
+    this.conditionEvaluator = conditionEvaluator;
     this.resolveValueAtBind = resolveValueAtBind;
     this.mainGuiController = mainGuiController;
     this.plugin = plugin;
@@ -107,7 +110,13 @@ public final class SubGuiController extends PaginatedGui {
     dispatcher.unregister(sessionId);
     inv.clear();
     for (EntryDef entry : def.getEntries()) {
-      ItemTemplate template = entry.getDisplay();
+      // 检查显示条件
+      if (!checkDisplayConditions(player, entry)) {
+        continue; // 不满足显示条件，跳过该条目
+      }
+      
+      // 根据MainGUI的ID解析正确的display模板（支持overrides）
+      ItemTemplate template = entry.resolveDisplay(session.getMainId());
       Map<String, String> placeholders = new HashMap<>();
       placeholders.put("key", entry.getKey());
       placeholders.put("value", entry.getValue());
@@ -127,6 +136,13 @@ public final class SubGuiController extends PaginatedGui {
         messageService.send(player, "messages.session-missing", Map.of());
         return;
       }
+      
+      // 检查选择条件
+      if (!checkChooseConditions(player, entry)) {
+        messageService.send(player, "messages.choose-condition-failed", Map.of());
+        return;
+      }
+      
       String valueToStore = resolveValueAtBind
           ? placeholderUtil.parse(player, entry.getValue())
           : entry.getValue();
@@ -197,6 +213,46 @@ public final class SubGuiController extends PaginatedGui {
         continue;
       }
       openSub(player, def);
+    }
+  }
+
+  /**
+   * 检查条目的显示条件是否满足。
+   *
+   * @param player 玩家
+   * @param entry 条目定义
+   * @return 如果满足显示条件返回 true，否则返回 false
+   */
+  private boolean checkDisplayConditions(Player player, EntryDef entry) {
+    if (!entry.getConditions().hasDisplayConditions()) {
+      return true; // 无显示条件限制，直接显示
+    }
+    
+    try {
+      return conditionEvaluator.checkAllLines(player, entry.getConditions().getDisplay());
+    } catch (Exception e) {
+      logger.error("检查显示条件失败: " + entry.getKey(), e);
+      return false; // 发生异常时默认不显示
+    }
+  }
+
+  /**
+   * 检查条目的选择条件是否满足。
+   *
+   * @param player 玩家
+   * @param entry 条目定义
+   * @return 如果满足选择条件返回 true，否则返回 false
+   */
+  private boolean checkChooseConditions(Player player, EntryDef entry) {
+    if (!entry.getConditions().hasChooseConditions()) {
+      return true; // 无选择条件限制，直接允许选择
+    }
+    
+    try {
+      return conditionEvaluator.checkAllLines(player, entry.getConditions().getChoose());
+    } catch (Exception e) {
+      logger.error("检查选择条件失败: " + entry.getKey(), e);
+      return false; // 发生异常时默认不允许选择
     }
   }
 }

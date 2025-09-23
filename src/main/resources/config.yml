@@ -4,8 +4,20 @@ resolveAtBind: false
 clickCooldownMs: 300
 sessionTimeoutMs: 90000
 
+# 数据库配置
 database:
+  # 数据库类型：sqlite 或 mysql
+  type: sqlite
+
+  # SQLite 配置（当 type=sqlite 时）
   file: data.db
+
+  # MySQL 配置（当 type=mysql 时）
+  # host: localhost
+  # port: 3306
+  # database: drcomoguibinder
+  # username: root
+  # password: ""
 
 async:
   writerThreads: 2

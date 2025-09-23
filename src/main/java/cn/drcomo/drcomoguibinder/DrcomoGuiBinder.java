@@ -8,11 +8,14 @@ import cn.drcomo.corelib.gui.GuiActionDispatcher;
 import cn.drcomo.corelib.gui.GuiManager;
 import cn.drcomo.corelib.gui.GUISessionManager;
 import cn.drcomo.corelib.hook.placeholder.PlaceholderAPIUtil;
+import cn.drcomo.corelib.hook.placeholder.parse.PlaceholderConditionEvaluator;
 import cn.drcomo.corelib.message.MessageService;
 import cn.drcomo.corelib.util.DebugUtil;
 import cn.drcomo.corelib.util.DebugUtil.LogLevel;
 import cn.drcomo.drcomoguibinder.bind.BindingRepository;
 import cn.drcomo.drcomoguibinder.bind.BindingService;
+import cn.drcomo.drcomoguibinder.database.DatabaseProvider;
+import cn.drcomo.drcomoguibinder.database.DatabaseProviderFactory;
 import cn.drcomo.drcomoguibinder.command.CommandHandler;
 import cn.drcomo.drcomoguibinder.config.GuiConfigService;
 import cn.drcomo.drcomoguibinder.gui.GuiListener;
@@ -41,10 +44,12 @@ public final class DrcomoGuiBinder extends JavaPlugin {
   private AsyncTaskManager asyncManager;
   private MessageService messageService;
   private GuiConfigService configService;
+  private DatabaseProvider databaseProvider;
   private BindingRepository bindingRepository;
   private BindingService bindingService;
   private ItemTemplateRenderer itemRenderer;
   private PlaceholderAPIUtil placeholderUtil;
+  private PlaceholderConditionEvaluator conditionEvaluator;
   private BinderPlaceholderExpansion placeholderExpansion;
   private CommandHandler commandHandler;
   private GUISessionManager guiSessionManager;
@@ -65,11 +70,8 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     // 拷贝默认文件结构
     yamlUtil.copyYamlFile("config.yml", "");
     yamlUtil.copyYamlFile("lang.yml", "");
-    yamlUtil.ensureFolderAndCopyDefaults("Main", "Main");
-    yamlUtil.ensureFolderAndCopyDefaults("Sub", "Sub");
-    if (!getDataFolder().toPath().resolve("schema.sql").toFile().exists()) {
-      saveResource("schema.sql", false);
-    }
+    yamlUtil.ensureFolderAndCopyDefaults("Main", "Main", "*.sql");
+    yamlUtil.ensureFolderAndCopyDefaults("Sub", "Sub", "*.sql");
 
     yamlUtil.loadConfig("config");
     YamlConfiguration config = yamlUtil.getConfig("config");
@@ -77,7 +79,12 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     this.resolveAtBind = config.getBoolean("resolveAtBind", false);
     this.clickCooldownMs = config.getLong("clickCooldownMs", 300L);
     long sessionTimeout = config.getLong("sessionTimeoutMs", 90000L);
-    String dbFile = resolveDatabasePath(config);
+    ConfigurationSection databaseConfig = config.getConfigurationSection("database");
+    if (databaseConfig == null) {
+      logger.error("配置文件缺少 database 节");
+      Bukkit.getPluginManager().disablePlugin(this);
+      return;
+    }
     int writerThreads = Math.max(1, config.getInt("async.writerThreads", 2));
     String placeholderPrefix = config.getString("placeholders.prefix", "dgb");
     String logLevel = config.getString("logLevel", "INFO");
@@ -92,6 +99,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     this.asyncManager = builder.build();
 
     this.placeholderUtil = new PlaceholderAPIUtil(this, placeholderPrefix);
+    this.conditionEvaluator = new PlaceholderConditionEvaluator(this, logger, placeholderUtil, asyncManager);
 
     this.messageService = new MessageService(this, logger, yamlUtil, placeholderUtil,
         "lang", "messages.");
@@ -108,9 +116,17 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     this.configService = new GuiConfigService(this, yamlUtil, logger, asyncManager);
     configService.init();
 
-    this.bindingRepository = new BindingRepository(this, logger, dbFile, List.of("schema.sql"));
-    bindingRepository.connect();
-    this.bindingService = new BindingService(bindingRepository, asyncManager, logger);
+    try {
+      this.databaseProvider = DatabaseProviderFactory.createProvider(this, logger, asyncManager, 
+          databaseConfig, List.of("schema.sql"));
+      this.bindingRepository = new BindingRepository(databaseProvider, logger);
+      bindingRepository.connect();
+      this.bindingService = new BindingService(bindingRepository, asyncManager, logger);
+    } catch (Exception ex) {
+      logger.error("初始化数据库失败", ex);
+      Bukkit.getPluginManager().disablePlugin(this);
+      return;
+    }
     try {
       bindingService.loadAll().join();
     } catch (CompletionException ex) {
@@ -129,7 +145,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
         !resolveAtBind, clickCooldownMs);
     this.subGuiController = new SubGuiController(guiSessionManager, guiDispatcher, configService,
         bindingService, itemRenderer, bindSessionManager, logger, messageService,
-        placeholderUtil, resolveAtBind, mainGuiController, this);
+        placeholderUtil, conditionEvaluator, resolveAtBind, mainGuiController, this);
     this.mainGuiController.setSubGuiController(subGuiController);
     this.subGuiController.setMainGuiController(mainGuiController);
 
@@ -180,16 +196,10 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     if (bindingRepository != null) {
       bindingRepository.close();
     }
+    if (databaseProvider != null) {
+      databaseProvider.disconnect();
+    }
     logger.info("DrcomoGuiBinder 已卸载");
   }
 
-  private String resolveDatabasePath(YamlConfiguration config) {
-    if (config.isConfigurationSection("database")) {
-      ConfigurationSection section = config.getConfigurationSection("database");
-      if (section != null) {
-        return section.getString("file", "data.db");
-      }
-    }
-    return config.getString("database", "data.db");
-  }
 }

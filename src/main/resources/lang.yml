@@ -11,6 +11,7 @@ messages:
   bind-cancelled: '&e绑定已被其他插件取消'
   bind-failed: '&c绑定失败，请联系管理员'
   bind-success: '&a绑定成功: {key} &7-> {value}'
+  choose-condition-failed: '&c你不满足选择该项目的条件'
   clear-failed: '&c清除失败，请稍后重试'
   clear-empty: '&e该槽位当前没有绑定内容'
   clear-success: '&a已清除 {player} 在 {main} 的槽位 {slot} 绑定'

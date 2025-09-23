@@ -205,7 +205,51 @@ public final class GuiConfigService {
         overrides.put(mainId, parseItemTemplate(entry.getValue()));
       }
     }
-    return new EntryDef(slot, key, value, display, overrides);
+    
+    // 解析条件配置
+    cn.drcomo.drcomoguibinder.config.model.ConditionConfig conditions = parseConditions(map.get("conditions"));
+    
+    return new EntryDef(slot, key, value, display, overrides, conditions);
+  }
+
+  private cn.drcomo.drcomoguibinder.config.model.ConditionConfig parseConditions(Object conditionsObj) {
+    if (conditionsObj == null) {
+      return cn.drcomo.drcomoguibinder.config.model.ConditionConfig.empty();
+    }
+    
+    if (conditionsObj instanceof Map<?, ?> conditionsMap) {
+      List<String> displayConditions = parseConditionList(conditionsMap.get("display"));
+      List<String> chooseConditions = parseConditionList(conditionsMap.get("choose"));
+      return new cn.drcomo.drcomoguibinder.config.model.ConditionConfig(displayConditions, chooseConditions);
+    }
+    
+    return cn.drcomo.drcomoguibinder.config.model.ConditionConfig.empty();
+  }
+  
+  private List<String> parseConditionList(Object conditionObj) {
+    if (conditionObj == null) {
+      return Collections.emptyList();
+    }
+    
+    if (conditionObj instanceof List<?> list) {
+      List<String> conditions = new ArrayList<>();
+      for (Object item : list) {
+        String condition = Objects.toString(item, "").trim();
+        if (!condition.isEmpty()) {
+          conditions.add(condition);
+        }
+      }
+      return conditions;
+    }
+    
+    if (conditionObj instanceof String str) {
+      String condition = str.trim();
+      if (!condition.isEmpty()) {
+        return List.of(condition);
+      }
+    }
+    
+    return Collections.emptyList();
   }
 
   private static int getInt(Object val, int def) {

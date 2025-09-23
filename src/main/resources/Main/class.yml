@@ -1,0 +1,61 @@
+id: class
+title: '&8DrcomoGuiBinder 示例界面'
+size: 27
+slots:
+  - slot: 10
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 11
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 12
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 13
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 14
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 15
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+  - slot: 16
+    sub: classchoose
+    displayEmpty:
+      material: BOOK
+      name: '&7未选择职业'
+      lore:
+        - '&f点击选择适用的职业'
+
+  # - slot: 12
+  #   sub: demo_titles
+  #   displayEmpty:
+  #     material: PAPER
+  #     name: '&7未选择称号'
+  #     lore:
+  #       - '&f点击绑定称号显示'

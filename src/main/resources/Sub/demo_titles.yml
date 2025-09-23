@@ -20,3 +20,32 @@ entries:
       lore:
         - '&7显示内容: &f{value}'
         - '&7适合辅助定位'
+  - slot: 14
+    conditions:
+      display:
+        - "%player_permission_group% >> 'VIP'"
+      choose:
+        - "%player_permission_group% >> 'VIP'"
+        - "%player_level% >= 20"
+    key: vip_master
+    value: '&6§l[尊贵大师] &f%player_name%'
+    display:
+      material: NETHER_STAR
+      name: '&6&l尊贵大师称号'
+      lore:
+        - '&7显示内容: &f{value}'
+        - '&7仅VIP玩家可见和选择'
+        - '&7需要达到20级才能选择'
+  - slot: 16
+    conditions:
+      choose:
+        - "%player_online_time% >= 3600"
+    key: veteran
+    value: '&b§l[老玩家] &f%player_name%'
+    display:
+      material: EXPERIENCE_BOTTLE
+      name: '&b&l老玩家称号'
+      lore:
+        - '&7显示内容: &f{value}'
+        - '&7需要在线时间超过1小时才能选择'
+        - '&7人人可见，但有选择条件'
