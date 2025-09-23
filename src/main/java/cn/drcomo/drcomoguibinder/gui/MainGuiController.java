@@ -170,10 +170,13 @@ public final class MainGuiController extends PaginatedGui {
   private ItemStack resolveSlotDisplay(Player player, MainGuiDef mainDef, MainSlotDef slotDef) {
     Binding binding = bindingService.get(player.getUniqueId(), mainDef.getId(), slotDef.getSlot());
     if (binding == null) {
-      return renderer.render(slotDef.getDisplayEmpty(), player, Map.of(
-          "main", mainDef.getId(),
-          "slot", String.valueOf(slotDef.getSlot())
-      ), true);
+      Map<String, String> placeholders = new HashMap<>();
+      placeholders.put("main", mainDef.getId());
+      placeholders.put("slot", String.valueOf(slotDef.getSlot()));
+      if (slotDef.getId() != null && !slotDef.getId().isEmpty()) {
+        placeholders.put("slotId", slotDef.getId());
+      }
+      return renderer.render(slotDef.getDisplayEmpty(), player, placeholders, true);
     }
     SubGuiDef sub = configService.getSub(binding.getSubId());
     if (sub == null) {
@@ -190,6 +193,9 @@ public final class MainGuiController extends PaginatedGui {
     placeholders.put("sub", sub.getId());
     placeholders.put("key", binding.getEntryKey());
     placeholders.put("value", binding.getEntryValue());
+    if (slotDef.getId() != null && !slotDef.getId().isEmpty()) {
+      placeholders.put("slotId", slotDef.getId());
+    }
     return renderer.render(template, player, placeholders, parseValueOnRender);
   }
 

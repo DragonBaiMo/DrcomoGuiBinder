@@ -10,11 +10,13 @@ public final class MainSlotDef {
   private final int slot;
   private final String subId;
   private final ItemTemplate displayEmpty;
+  private final String id;
 
-  public MainSlotDef(int slot, String subId, ItemTemplate displayEmpty) {
+  public MainSlotDef(int slot, String subId, ItemTemplate displayEmpty, String id) {
     this.slot = slot;
     this.subId = subId;
     this.displayEmpty = displayEmpty;
+    this.id = id;
   }
 
   public int getSlot() {
@@ -29,6 +31,10 @@ public final class MainSlotDef {
     return displayEmpty;
   }
 
+  public String getId() {
+    return id;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -37,12 +43,14 @@ public final class MainSlotDef {
     if (!(o instanceof MainSlotDef that)) {
       return false;
     }
-    return slot == that.slot && Objects.equals(subId, that.subId)
-        && Objects.equals(displayEmpty, that.displayEmpty);
+    return slot == that.slot
+        && Objects.equals(subId, that.subId)
+        && Objects.equals(displayEmpty, that.displayEmpty)
+        && Objects.equals(id, that.id);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(slot, subId, displayEmpty);
+    return Objects.hash(slot, subId, displayEmpty, id);
   }
 }

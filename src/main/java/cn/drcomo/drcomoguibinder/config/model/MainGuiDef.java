@@ -41,6 +41,16 @@ public final class MainGuiDef {
     return slots.stream().filter(def -> def.getSlot() == slotIndex).findFirst().orElse(null);
   }
 
+  public MainSlotDef findSlotById(String slotId) {
+    if (slotId == null || slotId.isEmpty()) {
+      return null;
+    }
+    return slots.stream()
+        .filter(def -> def.getId() != null && slotId.equalsIgnoreCase(def.getId()))
+        .findFirst()
+        .orElse(null);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
