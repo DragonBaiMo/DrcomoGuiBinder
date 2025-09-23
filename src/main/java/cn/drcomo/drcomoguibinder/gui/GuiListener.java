@@ -41,6 +41,19 @@ public final class GuiListener implements Listener {
     if (!sessionManager.hasSession(player)) {
       return;
     }
+    // 仅处理“顶部 GUI”库存的点击，避免玩家背包（底部栏）点击被错误映射
+    // 说明：当 GUI 不是 6 行（非 54 格）时，Bukkit 的全视图包含顶部 GUI + 底部背包。
+    // 此处明确要求：只有当点击发生在当前会话绑定的顶部库存时，才交给分发器处理。
+    if (event.getClickedInventory() == null) {
+      return;
+    }
+    var topInv = event.getView().getTopInventory();
+    if (event.getClickedInventory() != topInv) {
+      return; // 点击的是玩家背包或其他库存，忽略
+    }
+    if (!sessionManager.validateSessionInventory(player, topInv)) {
+      return; // 顶部库存并非当前会话的 GUI，忽略
+    }
     try {
       ClickContext context = ClickContext.from(event, sessionManager);
       dispatcher.handleClick(context, event);
