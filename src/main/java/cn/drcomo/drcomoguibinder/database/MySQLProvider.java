@@ -316,28 +316,20 @@ public final class MySQLProvider implements DatabaseProvider {
             if (inputStream == null) {
                 throw new Exception("找不到SQL脚本文件: " + scriptName);
             }
-            
-            // 读取脚本内容
+
+            // 读取脚本内容并拆解为语句列表，确保注释不会导致语句被跳过
             String scriptContent = new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            
-            // 按分号分割SQL语句（忽略注释行）
-            String[] statements = scriptContent.split(";");
-            
+            List<String> statements = parseSqlStatements(scriptContent);
+
             for (String statement : statements) {
-                String trimmed = statement.trim();
-                // 跳过空语句和注释行
-                if (trimmed.isEmpty() || trimmed.startsWith("--")) {
-                    continue;
-                }
-                
-                logger.debug("执行SQL语句: " + trimmed);
-                try (var stmt = connection.prepareStatement(trimmed)) {
+                logger.debug("执行SQL语句: " + statement);
+                try (var stmt = connection.prepareStatement(statement)) {
                     stmt.executeUpdate();
                 }
             }
-            
+
             logger.info("MySQL 脚本执行完成: " + scriptName);
-            
+
         } catch (Exception ex) {
             logger.error("执行 MySQL 脚本失败: " + scriptName, ex);
             throw new Exception("无法执行SQL脚本: " + scriptName, ex);
@@ -373,5 +365,46 @@ public final class MySQLProvider implements DatabaseProvider {
         long avgTime = statements > 0 ? totalExecutionTime.get() / statements : 0;
 
         return String.format("已执行语句: %d, 平均耗时: %dms", statements, avgTime);
+    }
+
+    /**
+     * 将脚本内容转换为可执行的 SQL 语句列表，自动忽略空行和注释。
+     *
+     * @param scriptContent SQL 脚本全文
+     * @return SQL 语句列表
+     */
+    private List<String> parseSqlStatements(String scriptContent) {
+        List<String> statements = new ArrayList<>();
+        StringBuilder currentStatement = new StringBuilder();
+
+        for (String rawLine : scriptContent.split("\\r?\\n")) {
+            String trimmedLine = rawLine.trim();
+            if (trimmedLine.isEmpty() || trimmedLine.startsWith("--")) {
+                continue;
+            }
+
+            currentStatement.append(rawLine).append('\n');
+
+            if (trimmedLine.endsWith(";")) {
+                int semicolonIndex = currentStatement.lastIndexOf(";");
+                if (semicolonIndex >= 0) {
+                    currentStatement.deleteCharAt(semicolonIndex);
+                }
+
+                String statement = currentStatement.toString().trim();
+                if (!statement.isEmpty()) {
+                    statements.add(statement);
+                }
+
+                currentStatement.setLength(0);
+            }
+        }
+
+        String remaining = currentStatement.toString().trim();
+        if (!remaining.isEmpty()) {
+            statements.add(remaining);
+        }
+
+        return statements;
     }
 }
