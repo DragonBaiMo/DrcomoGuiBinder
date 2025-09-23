@@ -212,8 +212,15 @@ public final class GuiConfigService {
     Object overrideObj = map.get("overrides");
     if (overrideObj instanceof Map<?, ?> overrideMap) {
       for (Map.Entry<?, ?> entry : overrideMap.entrySet()) {
-        String mainId = Objects.toString(entry.getKey());
-        overrides.put(mainId, parseItemTemplate(entry.getValue()));
+        String mainId = Objects.toString(entry.getKey(), "").trim();
+        if (mainId.isEmpty()) {
+          continue;
+        }
+        ItemTemplate overrideTemplate = parseOverrideTemplate(entry.getValue());
+        if (overrideTemplate == null || overrideTemplate.isEmpty()) {
+          continue;
+        }
+        overrides.put(mainId, overrideTemplate);
       }
     }
     
@@ -288,6 +295,25 @@ public final class GuiConfigService {
       return parseItemTemplate(temp);
     }
     return ItemTemplate.builder().material("STONE").name("&7未定义").build();
+  }
+
+  private ItemTemplate parseOverrideTemplate(Object overrideConfig) {
+    if (overrideConfig == null) {
+      return null;
+    }
+    Object templateSource = overrideConfig;
+    if (overrideConfig instanceof ConfigurationSection section) {
+      if (section.isConfigurationSection("display")) {
+        templateSource = section.getConfigurationSection("display");
+      } else if (section.contains("display")) {
+        templateSource = section.get("display");
+      }
+    } else if (overrideConfig instanceof Map<?, ?> map) {
+      if (map.containsKey("display")) {
+        templateSource = map.get("display");
+      }
+    }
+    return parseItemTemplate(templateSource);
   }
 
   private ItemTemplate parseItemTemplate(ConfigurationSection section) {
