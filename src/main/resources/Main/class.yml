@@ -3,6 +3,7 @@ title: '&8DrcomoGuiBinder 示例界面'
 size: 27
 slots:
   - slot: 10
+    id: "class1"
     sub: classchoose
     displayEmpty:
       material: BOOK
