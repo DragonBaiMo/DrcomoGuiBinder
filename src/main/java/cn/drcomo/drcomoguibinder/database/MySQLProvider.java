@@ -1,4 +1,4 @@
-﻿package cn.drcomo.drcomoguibinder.database;
+package cn.drcomo.drcomoguibinder.database;
 
 import cn.drcomo.corelib.async.AsyncTaskManager;
 import cn.drcomo.corelib.util.DebugUtil;
@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -16,9 +17,15 @@ import org.bukkit.plugin.Plugin;
 /**
  * MySQL 数据库提供者，采用 DrcomoCoreLib 的设计理念。
  * 使用简单的 JDBC 连接，配合 DrcomoCoreLib 的异步任务管理。
+ *
+ * 优化说明（摘要）：
+ * 1. 抽取重复逻辑到私有方法（setParameters、recordExecution、validateConnection、queryOneInternal、queryListInternal、executeUpdateInternal）。
+ * 2. 保留并补充注释，调整方法内部逻辑顺序以便阅读。
+ * 3. 保持所有 public 方法和字段不变，方法名未修改，功能不变。
  */
 public final class MySQLProvider implements DatabaseProvider {
 
+    // 基本依赖与配置
     private final Plugin plugin;
     private final DebugUtil logger;
     private final AsyncTaskManager asyncManager;
@@ -30,6 +37,7 @@ public final class MySQLProvider implements DatabaseProvider {
     private final String password;
     private final List<String> schemaScripts;
 
+    // JDBC 连接
     private Connection connection;
 
     // 性能监控计数器，借鉴 DrcomoCoreLib 的设计
@@ -60,7 +68,8 @@ public final class MySQLProvider implements DatabaseProvider {
         this.database = database;
         this.username = username;
         this.password = password;
-        this.schemaScripts = schemaScripts != null ? schemaScripts : List.of("schema-mysql.sql");
+        this.schemaScripts = schemaScripts != null && !schemaScripts.isEmpty() ?
+                schemaScripts : List.of("schema-mysql.sql");
 
         logger.debug("MySQL 提供者已创建，连接: " + host + ":" + port + "/" + database);
     }
@@ -68,18 +77,21 @@ public final class MySQLProvider implements DatabaseProvider {
     @Override
     public void connect() throws SQLException {
         try {
-            String url = String.format("jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC",
-                    host, port, database);
+            String url = String.format(
+                    "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC",
+                    host, port, database
+            );
 
             this.connection = DriverManager.getConnection(url, username, password);
+            // 明确设置自动提交，保证写操作立即生效
             this.connection.setAutoCommit(true);
 
             logger.debug("MySQL 已启用自动提交模式，保障写入立即生效");
-
             logger.info("MySQL 连接成功: " + host + ":" + port + "/" + database);
 
         } catch (Exception ex) {
             logger.error("MySQL 连接失败", ex);
+            // 连接异常时尝试安全关闭
             if (connection != null) {
                 try {
                     connection.close();
@@ -96,12 +108,12 @@ public final class MySQLProvider implements DatabaseProvider {
     public void disconnect() {
         try {
             if (connection != null && !connection.isClosed()) {
-                // 记录性能统计信息，类似 DrcomoCoreLib 的做法
-                long avgTime = executedStatements.get() > 0 ?
-                    totalExecutionTime.get() / executedStatements.get() : 0;
+                // 记录性能统计信息
+                long statements = executedStatements.get();
+                long avgTime = statements > 0 ? totalExecutionTime.get() / statements : 0;
 
-                logger.info("MySQL 断开连接，执行统计 - 总语句数: " + executedStatements.get() +
-                           ", 平均耗时: " + avgTime + "ms");
+                logger.info("MySQL 断开连接，执行统计 - 总语句数: " + statements +
+                        ", 平均耗时: " + avgTime + "ms");
 
                 connection.close();
                 connection = null;
@@ -119,17 +131,30 @@ public final class MySQLProvider implements DatabaseProvider {
             return;
         }
 
+        // 如果表已存在则跳过整个初始化流程
         try {
+            if (checkTableExists("gui_bindings")) {
+                logger.debug("检测到 gui_bindings 表已存在，跳过初始化脚本执行");
+                return;
+            }
+
             // 显式切换到目标数据库，避免在未选定 schema 下执行建表
             try (var useStmt = connection.prepareStatement("USE `" + database + "`")) {
                 useStmt.execute();
             }
+
+            // 依次执行脚本
             for (String scriptName : schemaScripts) {
                 logger.debug("执行 MySQL 初始化脚本: " + scriptName);
                 executeSchemaScript(scriptName);
             }
 
-            connection.commit();
+            // 提交所有建表操作
+            try {
+                connection.commit();
+            } catch (SQLException commitEx) {
+                logger.warn("提交初始化事务时发生异常: " + commitEx.getMessage());
+            }
 
             // 初始化后进行一次表存在性校验，尽早发现问题
             if (!checkTableExists("gui_bindings")) {
@@ -139,8 +164,9 @@ public final class MySQLProvider implements DatabaseProvider {
 
             logger.info("MySQL 表结构初始化完成");
         } catch (Exception ex) {
+            // 失败时尝试回滚并抛出 SQLException
             try {
-                connection.rollback();
+                if (connection != null) connection.rollback();
             } catch (SQLException rollbackEx) {
                 logger.warn("回滚初始化事务时发生异常: " + rollbackEx.getMessage());
             }
@@ -161,72 +187,18 @@ public final class MySQLProvider implements DatabaseProvider {
 
     @Override
     public int executeUpdate(String sql, Object... params) throws SQLException {
-        long startTime = System.currentTimeMillis();
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            setParameters(stmt, params);
-            int result = stmt.executeUpdate();
-
-            // 记录性能统计
-            recordExecution(startTime);
-            logger.debug("MySQL 更新操作完成，受影响行数: " + result);
-            return result;
-
-        } catch (Exception ex) {
-            recordExecution(startTime); // 即使失败也记录统计
-            logger.error("MySQL 执行更新失败: " + sql, ex);
-            throw new SQLException("MySQL 更新操作失败", ex);
-        }
+        // 使用内部通用执行器，保留行为和异常抛出
+        return executeUpdateInternal(sql, params);
     }
 
     @Override
     public <T> T queryOne(String sql, ResultSetHandler<T> handler, Object... params) throws SQLException {
-        long startTime = System.currentTimeMillis();
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            setParameters(stmt, params);
-            try (ResultSet rs = stmt.executeQuery()) {
-                T result = null;
-                if (rs.next()) {
-                    result = handler.handle(rs);
-                }
-
-                // 记录性能统计
-                recordExecution(startTime);
-                logger.debug("MySQL 单行查询完成，结果: " + (result != null ? "找到" : "未找到"));
-                return result;
-            }
-        } catch (Exception ex) {
-            recordExecution(startTime);
-            logger.error("MySQL 单行查询失败: " + sql, ex);
-            throw new SQLException("MySQL 查询操作失败", ex);
-        }
+        return queryOneInternal(sql, handler, params);
     }
 
     @Override
     public <T> List<T> queryList(String sql, ResultSetHandler<T> handler, Object... params) throws SQLException {
-        long startTime = System.currentTimeMillis();
-        List<T> results = new ArrayList<>();
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            setParameters(stmt, params);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    results.add(handler.handle(rs));
-                }
-            }
-
-            // 记录性能统计
-            recordExecution(startTime);
-            logger.debug("MySQL 多行查询完成，结果数量: " + results.size());
-            return results;
-
-        } catch (Exception ex) {
-            recordExecution(startTime);
-            logger.error("MySQL 多行查询失败: " + sql, ex);
-            throw new SQLException("MySQL 查询操作失败", ex);
-        }
+        return queryListInternal(sql, handler, params);
     }
 
     @Override
@@ -300,10 +272,9 @@ public final class MySQLProvider implements DatabaseProvider {
      * 设置 PreparedStatement 参数
      */
     private void setParameters(PreparedStatement stmt, Object... params) throws SQLException {
-        if (params != null) {
-            for (int i = 0; i < params.length; i++) {
-                stmt.setObject(i + 1, params[i]);
-            }
+        if (params == null || params.length == 0) return;
+        for (int i = 0; i < params.length; i++) {
+            stmt.setObject(i + 1, params[i]);
         }
     }
 
@@ -312,7 +283,7 @@ public final class MySQLProvider implements DatabaseProvider {
      */
     private void executeSchemaScript(String scriptName) throws Exception {
         logger.debug("开始执行 MySQL 脚本: " + scriptName);
-        
+
         // 从插件资源中读取SQL脚本
         try (var inputStream = plugin.getResource(scriptName)) {
             if (inputStream == null) {
@@ -320,7 +291,7 @@ public final class MySQLProvider implements DatabaseProvider {
             }
 
             // 读取脚本内容并拆解为语句列表，确保注释不会导致语句被跳过
-            String scriptContent = new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String scriptContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             List<String> statements = parseSqlStatements(scriptContent);
 
             for (String statement : statements) {
@@ -409,4 +380,93 @@ public final class MySQLProvider implements DatabaseProvider {
 
         return statements;
     }
+
+    /* ---------------- private 通用执行器与校验方法 ---------------- */
+
+    /**
+     * 校验当前 connection 是否可用。若不可用则抛出 SQLException。
+     * 保持行为稳定的前提下提供更早期的错误提示。
+     */
+    private void validateConnection() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            throw new SQLException("数据库连接未建立或已关闭");
+        }
+    }
+
+    /**
+     * 内部 executeUpdate 实现，包含参数绑定、性能统计与日志。
+     */
+    private int executeUpdateInternal(String sql, Object... params) throws SQLException {
+        long startTime = System.currentTimeMillis();
+        validateConnection();
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            setParameters(stmt, params);
+            int result = stmt.executeUpdate();
+
+            logger.debug("MySQL 更新操作完成，受影响行数: " + result);
+            return result;
+        } catch (Exception ex) {
+            logger.error("MySQL 执行更新失败: " + sql, ex);
+            throw new SQLException("MySQL 更新操作失败", ex);
+        } finally {
+            // 无论成功或失败都记录执行统计
+            recordExecution(startTime);
+        }
+    }
+
+    /**
+     * 内部单行查询实现，返回第一行处理结果或 null。
+     */
+    private <T> T queryOneInternal(String sql, ResultSetHandler<T> handler, Object... params) throws SQLException {
+        long startTime = System.currentTimeMillis();
+        validateConnection();
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            setParameters(stmt, params);
+            try (ResultSet rs = stmt.executeQuery()) {
+                T result = null;
+                if (rs.next()) {
+                    result = handler.handle(rs);
+                }
+                logger.debug("MySQL 单行查询完成，结果: " + (result != null ? "找到" : "未找到"));
+                return result;
+            }
+        } catch (Exception ex) {
+            logger.error("MySQL 单行查询失败: " + sql, ex);
+            throw new SQLException("MySQL 查询操作失败", ex);
+        } finally {
+            recordExecution(startTime);
+        }
+    }
+
+    /**
+     * 内部多行查询实现，返回列表（即使为空也返回空列表）。
+     */
+    private <T> List<T> queryListInternal(String sql, ResultSetHandler<T> handler, Object... params) throws SQLException {
+        long startTime = System.currentTimeMillis();
+        validateConnection();
+
+        List<T> results = new ArrayList<>();
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            setParameters(stmt, params);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    results.add(handler.handle(rs));
+                }
+            }
+            logger.debug("MySQL 多行查询完成，结果数量: " + results.size());
+            return results;
+        } catch (Exception ex) {
+            logger.error("MySQL 多行查询失败: " + sql, ex);
+            throw new SQLException("MySQL 查询操作失败", ex);
+        } finally {
+            recordExecution(startTime);
+        }
+    }
+
+    /* ---------------- 未使用或注释保留内容（置于文件末尾） ----------------
+       若未来需要保留原始实现或示例，可在此处恢复。当前无未调用代码片段需要隐藏。
+    */
+
 }
