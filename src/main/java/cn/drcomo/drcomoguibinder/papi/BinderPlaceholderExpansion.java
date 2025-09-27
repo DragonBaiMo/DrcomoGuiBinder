@@ -19,7 +19,9 @@ import org.bukkit.inventory.ItemStack;
 /**
  * 负责向 PlaceholderAPI 注册并解析插件提供的占位符。
  * 新格式: %dgb_&lt;function&gt;_&lt;mainId&gt;_&lt;slot&gt;%
- * 支持的 function: value, key, display, sub, id
+ * has 功能仅需传入 mainId，例如 %dgb_has_主界面标识%
+ * subhas 功能需传入 subId 与 entryKey，例如 %dgb_subhas_子界面标识_条目键%
+ * 支持的 function: value, key, display, sub, id, has, subhas
  */
 public final class BinderPlaceholderExpansion {
 
@@ -61,17 +63,45 @@ public final class BinderPlaceholderExpansion {
     // 为 id 功能注册占位符：%dgb_id_<mainId>_<slotId>%
     placeholderUtil.register("id",
         (player, rawArgs) -> resolveByFunction(player, "id", rawArgs));
+
+    // 为 has 功能注册占位符：%dgb_has_<mainId>%
+    placeholderUtil.register("has",
+        (player, rawArgs) -> resolveByFunction(player, "has", rawArgs));
+
+    // 为 subhas 功能注册占位符：%dgb_subhas_<subId>_<entryKey>%
+    placeholderUtil.register("subhas",
+        (player, rawArgs) -> resolveByFunction(player, "subhas", rawArgs));
   }
 
   /**
    * 根据 function 类型分发占位符解析请求。
    *
    * @param player 玩家
-   * @param function 功能类型 (value, key, display, sub, id)
-   * @param rawArgs 原始参数，格式为 "<mainId>_<slot>" 或 "<mainId>_<slot>|默认值"
+   * @param function 功能类型 (value, key, display, sub, id, has, subhas)
+   * @param rawArgs 原始参数，value/key/display/sub/id 功能需传入 "<mainId>_<slot>" 或
+   *     "<mainId>_<slot>|默认值"；has 功能需传入 "<mainId>" 或 "<mainId>|默认值"；subhas 功能需
+   *     传入 "<subId>_<entryKey>" 或 "<subId>_<entryKey>|默认值"
    * @return 解析结果
    */
   private String resolveByFunction(Player player, String function, String rawArgs) {
+    if ("has".equals(function)) {
+      MainFunctionRequest request = parseMainFunctionArgs(rawArgs);
+      if (request == null) {
+        logger.warn("无效的占位符参数格式: " + rawArgs);
+        return "false";
+      }
+      return resolveHasBound(player, request.mainId, request.defaultValue);
+    }
+
+    if ("subhas".equals(function)) {
+      SubEntryFunctionRequest request = parseSubEntryFunctionArgs(rawArgs);
+      if (request == null) {
+        logger.warn("无效的占位符参数格式: " + rawArgs);
+        return "false";
+      }
+      return resolveSubHasBound(player, request.subId, request.entryKey, request.defaultValue);
+    }
+
     FunctionRequest request = parseFunctionArgs(rawArgs);
     if (request == null) {
       logger.warn("无效的占位符参数格式: " + rawArgs);
@@ -199,6 +229,75 @@ public final class BinderPlaceholderExpansion {
     return resolveKey(player, mainId, slotToken, defaultValue);
   }
 
+  private String resolveHasBound(Player player, String mainId, String defaultValue) {
+    if (mainId == null || mainId.isEmpty()) {
+      return "false";
+    }
+    if (player == null) {
+      return defaultValue;
+    }
+    boolean hasBound = !bindingService.listPlayerMain(player.getUniqueId(), mainId).isEmpty();
+    return hasBound ? "true" : defaultValue;
+  }
+
+  private String resolveSubHasBound(Player player, String subId, String entryKey,
+      String defaultValue) {
+    if (subId == null || subId.isEmpty() || entryKey == null || entryKey.isEmpty()) {
+      return "false";
+    }
+    if (player == null) {
+      return defaultValue;
+    }
+    for (Binding binding : bindingService.listPlayer(player.getUniqueId())) {
+      if (subId.equalsIgnoreCase(binding.getSubId())
+          && entryKey.equalsIgnoreCase(binding.getEntryKey())) {
+        return "true";
+      }
+    }
+    return defaultValue;
+  }
+
+  private MainFunctionRequest parseMainFunctionArgs(String rawArgs) {
+    if (rawArgs == null || rawArgs.isEmpty()) {
+      return null;
+    }
+    String[] defaultParts = rawArgs.split("\\|", 2);
+    String mainId = defaultParts[0] == null ? "" : defaultParts[0].trim();
+    if (mainId.isEmpty()) {
+      return null;
+    }
+    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "false";
+    if (defaultValue == null || defaultValue.isEmpty()) {
+      defaultValue = "false";
+    }
+    return new MainFunctionRequest(mainId, defaultValue);
+  }
+
+  private SubEntryFunctionRequest parseSubEntryFunctionArgs(String rawArgs) {
+    if (rawArgs == null || rawArgs.isEmpty()) {
+      return null;
+    }
+    String[] defaultParts = rawArgs.split("\\|", 2);
+    String mainPart = defaultParts[0];
+    if (mainPart == null || mainPart.isEmpty()) {
+      return null;
+    }
+    String[] args = mainPart.split("_", 2);
+    if (args.length < 2) {
+      return null;
+    }
+    String subId = args[0].trim();
+    String entryKey = args[1].trim();
+    if (subId.isEmpty() || entryKey.isEmpty()) {
+      return null;
+    }
+    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "false";
+    if (defaultValue == null || defaultValue.isEmpty()) {
+      defaultValue = "false";
+    }
+    return new SubEntryFunctionRequest(subId, entryKey, defaultValue);
+  }
+
   private Integer resolveSlotIndex(String mainId, String slotToken) {
     if (slotToken == null || slotToken.isEmpty()) {
       return null;
@@ -219,5 +318,17 @@ public final class BinderPlaceholderExpansion {
    * 功能请求记录类，用于封装解析后的占位符参数。
    */
   private record FunctionRequest(String mainId, String slotToken, String defaultValue) {
+  }
+
+  /**
+   * 主界面占位符请求记录类，用于封装仅依赖主 GUI 的占位符参数。
+   */
+  private record MainFunctionRequest(String mainId, String defaultValue) {
+  }
+
+  /**
+   * 子界面占位符请求记录类，用于封装依赖子界面条目的占位符参数。
+   */
+  private record SubEntryFunctionRequest(String subId, String entryKey, String defaultValue) {
   }
 }
