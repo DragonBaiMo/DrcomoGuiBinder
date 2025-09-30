@@ -22,6 +22,7 @@ import cn.drcomo.drcomoguibinder.gui.GuiListener;
 import cn.drcomo.drcomoguibinder.gui.MainGuiController;
 import cn.drcomo.drcomoguibinder.gui.SubGuiController;
 import cn.drcomo.drcomoguibinder.gui.session.BindSession;
+import cn.drcomo.drcomoguibinder.listener.PlayerJoinListener;
 import cn.drcomo.drcomoguibinder.papi.BinderPlaceholderExpansion;
 import cn.drcomo.drcomoguibinder.template.ItemTemplateRenderer;
 import java.util.Locale;
@@ -152,6 +153,11 @@ public final class DrcomoGuiBinder extends JavaPlugin {
         mainGuiController, subGuiController);
     PluginManager pm = Bukkit.getPluginManager();
     pm.registerEvents(guiListener, this);
+
+    // 注册玩家进服缓存同步监听器
+    PlayerJoinListener playerJoinListener = new PlayerJoinListener(bindingService, logger);
+    pm.registerEvents(playerJoinListener, this);
+    logger.debug("已注册玩家进服缓存同步监听器");
 
     placeholderExpansion.registerAll();
     configService.addReloadListener(() -> {

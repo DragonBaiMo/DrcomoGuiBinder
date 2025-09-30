@@ -4,6 +4,7 @@ import cn.drcomo.corelib.async.AsyncTaskManager;
 import cn.drcomo.corelib.config.YamlUtil;
 import cn.drcomo.corelib.util.DebugUtil;
 import cn.drcomo.drcomoguibinder.config.model.EntryDef;
+import cn.drcomo.drcomoguibinder.config.model.GuiSlotType;
 import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.config.model.MainGuiDef;
 import cn.drcomo.drcomoguibinder.config.model.MainSlotDef;
@@ -151,30 +152,87 @@ public final class GuiConfigService {
     }
     List<Map<?, ?>> slotList = yaml.getMapList("slots");
     List<MainSlotDef> slots = new ArrayList<>();
+    int globalIndex = 0;
     for (Map<?, ?> map : slotList) {
-      int slotIndex = getInt(map.get("slot"), slots.size());
-      String subId = Objects.toString(map.get("sub"), null);
-      String slotId = null;
-      Object slotIdObj = map.get("id");
-      if (slotIdObj != null) {
-        slotId = Objects.toString(slotIdObj, null);
-        if (slotId != null) {
-          slotId = slotId.trim();
-          if (slotId.isEmpty()) {
-            slotId = null;
-          }
+      // 解析可能返回多个 MainSlotDef（当使用 slots 字段时）
+      slots.addAll(parseMainSlots(id, globalIndex++, map));
+    }
+    return new MainGuiDef(id, title, size, slots);
+  }
+
+  /**
+   * 解析 Main GUI 的槽位配置，支持 slot 和 slots 两种写法。
+   *
+   * @param mainId Main GUI 的 ID
+   * @param index 槽位条目索引
+   * @param map 配置映射
+   * @return 解析出的 MainSlotDef 列表（单个 slot 返回 1 个，多个 slots 返回 N 个）
+   */
+  private List<MainSlotDef> parseMainSlots(String mainId, int index, Map<?, ?> map) {
+    List<Integer> slotIndices = new ArrayList<>();
+
+    // 优先检查 slots 字段（批量槽位）
+    Object slotsObj = map.get("slots");
+    if (slotsObj instanceof List<?> slotsList) {
+      for (Object slotObj : slotsList) {
+        int slot = getInt(slotObj, -1);
+        if (slot >= 0) {
+          slotIndices.add(slot);
         }
       }
-      ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
-      if (displayEmpty == null || displayEmpty.isEmpty()) {
+    }
+
+    // 若 slots 字段无效，回退到 slot 字段（单个槽位）
+    if (slotIndices.isEmpty()) {
+      int singleSlot = getInt(map.get("slot"), index);
+      slotIndices.add(singleSlot);
+    }
+
+    // 解析共用配置
+    String subId = Objects.toString(map.get("sub"), null);
+    String slotId = null;
+    Object slotIdObj = map.get("id");
+    if (slotIdObj != null) {
+      slotId = Objects.toString(slotIdObj, null);
+      if (slotId != null) {
+        slotId = slotId.trim();
+        if (slotId.isEmpty()) {
+          slotId = null;
+        }
+      }
+    }
+
+    GuiSlotType type = parseSlotType(map.get("type"));
+    ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
+
+    // 补充默认显示模板
+    if (displayEmpty == null || displayEmpty.isEmpty()) {
+      if (type == GuiSlotType.DECORATION) {
+        displayEmpty = ItemTemplate.builder()
+            .material("GRAY_STAINED_GLASS_PANE")
+            .name(" ")
+            .build();
+      } else {
         displayEmpty = ItemTemplate.builder()
             .material("GRAY_STAINED_GLASS_PANE")
             .name("&7未绑定槽位")
             .build();
       }
-      slots.add(new MainSlotDef(slotIndex, subId, displayEmpty, slotId));
     }
-    return new MainGuiDef(id, title, size, slots);
+
+    // 装饰槽类型检测 sub 字段警告
+    if (type == GuiSlotType.DECORATION && subId != null && !subId.isEmpty()) {
+      logger.warn("Main " + mainId + " 的槽位配置为 DECORATION 类型，但指定了 sub 字段，将忽略 sub 配置");
+      subId = null;
+    }
+
+    // 为每个槽位生成独立的 MainSlotDef
+    List<MainSlotDef> slotDefs = new ArrayList<>();
+    for (int slot : slotIndices) {
+      slotDefs.add(new MainSlotDef(slot, subId, displayEmpty, slotId, type));
+    }
+
+    return slotDefs;
   }
 
   private SubGuiDef parseSub(String fileName, YamlConfiguration yaml) {
@@ -190,24 +248,69 @@ public final class GuiConfigService {
       int index = 0;
       for (Object obj : entryList) {
         if (obj instanceof Map<?, ?> map) {
-          entries.add(parseEntry(id, index++, map));
+          // 解析可能返回多个 EntryDef（当使用 slots 字段时）
+          entries.addAll(parseEntries(id, index++, map));
         }
       }
     }
     return new SubGuiDef(id, title, size, entries);
   }
 
-  private EntryDef parseEntry(String subId, int index, Map<?, ?> map) {
-    int slot = getInt(map.get("slot"), index);
+  /**
+   * 解析配置条目，支持 slot 和 slots 两种写法。
+   *
+   * @param subId Sub GUI 的 ID
+   * @param index 条目索引
+   * @param map 配置映射
+   * @return 解析出的 EntryDef 列表（单个 slot 返回 1 个，多个 slots 返回 N 个）
+   */
+  private List<EntryDef> parseEntries(String subId, int index, Map<?, ?> map) {
+    List<Integer> slotIndices = new ArrayList<>();
+
+    // 优先检查 slots 字段（批量槽位）
+    Object slotsObj = map.get("slots");
+    if (slotsObj instanceof List<?> slotsList) {
+      for (Object slotObj : slotsList) {
+        int slot = getInt(slotObj, -1);
+        if (slot >= 0) {
+          slotIndices.add(slot);
+        }
+      }
+    }
+
+    // 若 slots 字段无效，回退到 slot 字段（单个槽位）
+    if (slotIndices.isEmpty()) {
+      int singleSlot = getInt(map.get("slot"), index);
+      slotIndices.add(singleSlot);
+    }
+
+    // 解析共用配置
     String key = Objects.toString(map.get("key"), "entry_" + index);
     String value = Objects.toString(map.get("value"), "");
+    GuiSlotType type = parseSlotType(map.get("type"));
     ItemTemplate display = parseItemTemplate(map.get("display"));
+
+    // 补充默认显示模板
     if (display == null || display.isEmpty()) {
-      display = ItemTemplate.builder()
-          .material("BOOK")
-          .name("&f" + key)
-          .build();
+      if (type == GuiSlotType.DECORATION) {
+        display = ItemTemplate.builder()
+            .material("GRAY_STAINED_GLASS_PANE")
+            .name(" ")
+            .build();
+      } else if (type == GuiSlotType.RETURN) {
+        display = ItemTemplate.builder()
+            .material("ARROW")
+            .name("&f返回")
+            .build();
+      } else {
+        display = ItemTemplate.builder()
+            .material("BOOK")
+            .name("&f" + key)
+            .build();
+      }
     }
+
+    // 解析 overrides
     Map<String, ItemTemplate> overrides = new HashMap<>();
     Object overrideObj = map.get("overrides");
     if (overrideObj instanceof Map<?, ?> overrideMap) {
@@ -223,11 +326,17 @@ public final class GuiConfigService {
         overrides.put(mainId, overrideTemplate);
       }
     }
-    
+
     // 解析条件配置
     cn.drcomo.drcomoguibinder.config.model.ConditionConfig conditions = parseConditions(map.get("conditions"));
-    
-    return new EntryDef(slot, key, value, display, overrides, conditions);
+
+    // 为每个槽位生成独立的 EntryDef
+    List<EntryDef> entries = new ArrayList<>();
+    for (int slot : slotIndices) {
+      entries.add(new EntryDef(slot, key, value, display, overrides, conditions, type));
+    }
+
+    return entries;
   }
 
   private cn.drcomo.drcomoguibinder.config.model.ConditionConfig parseConditions(Object conditionsObj) {
@@ -348,5 +457,24 @@ public final class GuiConfigService {
       builder.nbt(nbt);
     }
     return builder.build();
+  }
+
+  /**
+   * 解析槽位类型字段，默认返回 DEFAULT。
+   * 
+   * @param typeObj 类型字段值
+   * @return 槽位类型枚举
+   */
+  private GuiSlotType parseSlotType(Object typeObj) {
+    if (typeObj == null) {
+      return GuiSlotType.DEFAULT;
+    }
+    String typeStr = Objects.toString(typeObj, "").trim().toUpperCase();
+    try {
+      return GuiSlotType.valueOf(typeStr);
+    } catch (IllegalArgumentException e) {
+      logger.warn("未识别的槽位类型: " + typeStr + "，使用默认类型 DEFAULT");
+      return GuiSlotType.DEFAULT;
+    }
   }
 }

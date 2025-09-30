@@ -2,6 +2,35 @@ id: classchoose
 title: '&8职业选择'
 size: 27
 entries:
+  # 返回槽示例：用于返回上一级界面
+  - slot: 0
+    type: RETURN  # 返回槽类型
+    key: "return"  # key 和 value 对返回槽无意义，但必须提供
+    value: ""
+    display:
+      material: ARROW
+      name: '&f返回'
+      lore:
+        - '&7点击返回主界面'
+
+  # 装饰槽示例：批量定义多个槽位（新写法，推荐用于装饰边框）
+  - slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+    type: DECORATION
+    key: "decoration_border"
+    value: ""
+    display:
+      material: GRAY_STAINED_GLASS_PANE
+      name: ' '
+
+  # 装饰槽示例：单个槽位（旧写法，依然支持）
+  # - slot: 8
+  #   type: DECORATION
+  #   key: "decoration1"
+  #   value: ""
+  #   display:
+  #     material: GRAY_STAINED_GLASS_PANE
+  #     name: ' '
+
   - slot: 10
     conditions:
       # display: # 没这个权限甚至不会显示

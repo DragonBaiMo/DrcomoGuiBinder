@@ -11,6 +11,7 @@ import cn.drcomo.drcomoguibinder.bind.Binding;
 import cn.drcomo.drcomoguibinder.bind.BindingService;
 import cn.drcomo.drcomoguibinder.config.GuiConfigService;
 import cn.drcomo.drcomoguibinder.config.model.EntryDef;
+import cn.drcomo.drcomoguibinder.config.model.GuiSlotType;
 import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.config.model.SubGuiDef;
 import cn.drcomo.drcomoguibinder.event.GuiBindEvent;
@@ -124,55 +125,104 @@ public final class SubGuiController extends PaginatedGui {
       placeholders.put("main", session.getMainId());
       ItemStack item = renderer.render(template, player, placeholders, true);
       inv.setItem(entry.getSlot(), item);
-      registerClick(sessionId, entry);
+      
+      // 装饰槽只放置物品，不注册点击事件
+      if (entry.getType() != GuiSlotType.DECORATION) {
+        registerClick(sessionId, entry, session);
+      }
     }
   }
 
-  private void registerClick(String sessionId, EntryDef entry) {
+  private void registerClick(String sessionId, EntryDef entry, BindSession session) {
     ClickAction action = context -> {
       Player player = context.player();
-      BindSession session = bindSessions.getSession(player);
-      if (session == null) {
+      BindSession currentSession = bindSessions.getSession(player);
+      if (currentSession == null) {
+        logger.warn("玩家 " + player.getName() + " 点击了 Sub 界面，但会话丢失");
         messageService.send(player, "messages.session-missing", Map.of());
         return;
       }
       
-      // 检查选择条件
-      if (!checkChooseConditions(player, entry)) {
-        messageService.send(player, "messages.choose-condition-failed", Map.of());
+      // 处理返回槽
+      if (entry.getType() == GuiSlotType.RETURN) {
+        handleReturnClick(player, currentSession);
         return;
       }
       
-      String valueToStore = resolveValueAtBind
-          ? placeholderUtil.parse(player, entry.getValue())
-          : entry.getValue();
-      GuiBindEvent event = new GuiBindEvent(player, session.getMainId(), session.getSlot(),
-          session.getSubId(), entry.getKey(), valueToStore);
-      Bukkit.getPluginManager().callEvent(event);
-      if (event.isCancelled()) {
-        messageService.send(player, "messages.bind-cancelled", Map.of());
+      // 处理默认绑定槽
+      if (entry.getType() == GuiSlotType.DEFAULT) {
+        handleBindClick(player, currentSession, entry);
         return;
       }
-      Binding binding = Binding.now(player.getUniqueId(), event.getMainId(), event.getSlot(),
-          event.getSubId(), event.getEntryKey(), event.getEntryValue());
-      bindingService.bind(binding).whenComplete((b, ex) -> {
-        if (ex != null) {
-          logger.error("写入绑定失败", ex);
-          messageService.send(player, "messages.bind-failed", Map.of());
-          return;
-        }
-        Bukkit.getScheduler().runTask(plugin, () -> {
-          messageService.send(player, "messages.bind-success",
-              Map.of("key", binding.getEntryKey(), "value", binding.getEntryValue()));
-          currentSub.remove(player.getUniqueId());
-          bindSessions.destroySession(player);
-          sessions.closeSession(player);
-          mainGuiController.openMain(player, binding.getMainId());
-          mainGuiController.refreshSlot(player, binding.getMainId(), binding.getSlot());
-        });
-      });
     };
     dispatcher.registerForSlot(sessionId, entry.getSlot(), action);
+  }
+  
+  /**
+   * 处理返回槽点击事件。
+   */
+  private void handleReturnClick(Player player, BindSession session) {
+    if (session == null || session.getMainId() == null || session.getMainId().isEmpty()) {
+      logger.error("玩家 " + player.getName() + " 点击返回槽，但会话数据不完整");
+      messageService.send(player, "messages.return-no-session", Map.of());
+      player.closeInventory();
+      return;
+    }
+    
+    logger.info("玩家 " + player.getName() + " 点击返回槽，返回主界面: " + session.getMainId());
+    String mainId = session.getMainId();
+    currentSub.remove(player.getUniqueId());
+    bindSessions.destroySession(player);
+    sessions.closeSession(player);
+    
+    if (mainGuiController != null) {
+      mainGuiController.openMain(player, mainId);
+      messageService.send(player, "messages.return-success", Map.of("mainId", mainId));
+    } else {
+      logger.error("主界面控制器未初始化，无法返回");
+      player.closeInventory();
+    }
+  }
+  
+  /**
+   * 处理绑定槽点击事件。
+   */
+  private void handleBindClick(Player player, BindSession session, EntryDef entry) {
+    // 检查选择条件
+    if (!checkChooseConditions(player, entry)) {
+      messageService.send(player, "messages.choose-condition-failed", Map.of());
+      return;
+    }
+    
+    String valueToStore = resolveValueAtBind
+        ? placeholderUtil.parse(player, entry.getValue())
+        : entry.getValue();
+    GuiBindEvent event = new GuiBindEvent(player, session.getMainId(), session.getSlot(),
+        session.getSubId(), entry.getKey(), valueToStore);
+    Bukkit.getPluginManager().callEvent(event);
+    if (event.isCancelled()) {
+      messageService.send(player, "messages.bind-cancelled", Map.of());
+      return;
+    }
+    Binding binding = Binding.now(player.getUniqueId(), event.getMainId(), event.getSlot(),
+        event.getSubId(), entry.getKey(), event.getEntryValue());
+    bindingService.bind(binding).whenComplete((b, ex) -> {
+      if (ex != null) {
+        logger.error("写入绑定失败", ex);
+        messageService.send(player, "messages.bind-failed", Map.of());
+        return;
+      }
+      Bukkit.getScheduler().runTask(plugin, () -> {
+        logger.info("玩家 " + player.getName() + " 成功绑定: key=" + binding.getEntryKey() + ", value=" + binding.getEntryValue());
+        messageService.send(player, "messages.bind-success",
+            Map.of("key", binding.getEntryKey(), "value", binding.getEntryValue()));
+        currentSub.remove(player.getUniqueId());
+        bindSessions.destroySession(player);
+        sessions.closeSession(player);
+        mainGuiController.openMain(player, binding.getMainId());
+        mainGuiController.refreshSlot(player, binding.getMainId(), binding.getSlot());
+      });
+    });
   }
 
   private SubGuiDef currentDefinition(Player player) {

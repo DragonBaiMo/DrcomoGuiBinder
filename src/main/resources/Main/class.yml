@@ -59,6 +59,20 @@ slots:
       lore:
         - '&f点击选择适用的职业'
 
+  # 装饰槽示例：批量定义多个槽位（新写法，推荐用于装饰边框）
+  - slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+    type: DECORATION
+    displayEmpty:
+      material: GRAY_STAINED_GLASS_PANE
+      name: ' '
+
+  # 装饰槽示例：单个槽位（旧写法，依然支持）
+  # - slot: 0
+  #   type: DECORATION
+  #   displayEmpty:
+  #     material: GRAY_STAINED_GLASS_PANE
+  #     name: ' '
+
   # - slot: 12
   #   sub: demo_titles
   #   displayEmpty:

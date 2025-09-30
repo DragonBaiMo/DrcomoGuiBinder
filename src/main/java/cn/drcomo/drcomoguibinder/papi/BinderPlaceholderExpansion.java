@@ -2,6 +2,7 @@ package cn.drcomo.drcomoguibinder.papi;
 
 import cn.drcomo.corelib.hook.placeholder.PlaceholderAPIUtil;
 import cn.drcomo.corelib.util.DebugUtil;
+import cn.drcomo.corelib.color.ColorUtil;
 import cn.drcomo.drcomoguibinder.bind.Binding;
 import cn.drcomo.drcomoguibinder.bind.BindingService;
 import cn.drcomo.drcomoguibinder.config.GuiConfigService;
@@ -19,7 +20,9 @@ import org.bukkit.inventory.ItemStack;
 /**
  * 负责向 PlaceholderAPI 注册并解析插件提供的占位符。
  * 新格式: %dgb_&lt;function&gt;_&lt;mainId&gt;_&lt;slot&gt;%
- * has 功能仅需传入 mainId，例如 %dgb_has_主界面标识%
+ * has 功能支持两种格式：
+ *   - %dgb_has_<mainId>% 检测整个主界面是否有绑定
+ *   - %dgb_has_<mainId>_<slotToken>% 检测主界面的指定槽位是否有绑定
  * subhas 功能需传入 subId 与 entryKey，例如 %dgb_subhas_子界面标识_条目键%
  * 支持的 function: value, key, display, sub, id, has, subhas
  */
@@ -71,6 +74,7 @@ public final class BinderPlaceholderExpansion {
     // 为 subhas 功能注册占位符：%dgb_subhas_<subId>_<entryKey>%
     placeholderUtil.register("subhas",
         (player, rawArgs) -> resolveByFunction(player, "subhas", rawArgs));
+
   }
 
   /**
@@ -79,27 +83,25 @@ public final class BinderPlaceholderExpansion {
    * @param player 玩家
    * @param function 功能类型 (value, key, display, sub, id, has, subhas)
    * @param rawArgs 原始参数，value/key/display/sub/id 功能需传入 "<mainId>_<slot>" 或
-   *     "<mainId>_<slot>|默认值"；has 功能需传入 "<mainId>" 或 "<mainId>|默认值"；subhas 功能需
+   *     "<mainId>_<slot>|默认值"；has 功能需传入 "<mainId>" 或 "<mainId>|默认值" 或
+   *     "<mainId>_<slotToken>" 或 "<mainId>_<slotToken>|默认值"；subhas 功能需
    *     传入 "<subId>_<entryKey>" 或 "<subId>_<entryKey>|默认值"
    * @return 解析结果
    */
   private String resolveByFunction(Player player, String function, String rawArgs) {
     if ("has".equals(function)) {
-      MainFunctionRequest request = parseMainFunctionArgs(rawArgs);
-      if (request == null) {
-        logger.warn("无效的占位符参数格式: " + rawArgs);
-        return "false";
-      }
-      return resolveHasBound(player, request.mainId, request.defaultValue);
+      return resolveHasFunction(player, rawArgs);
     }
 
     if ("subhas".equals(function)) {
       SubEntryFunctionRequest request = parseSubEntryFunctionArgs(rawArgs);
       if (request == null) {
         logger.warn("无效的占位符参数格式: " + rawArgs);
-        return "false";
+        return "0";
       }
-      return resolveSubHasBound(player, request.subId, request.entryKey, request.defaultValue);
+      int def = normalize01ToInt(request.defaultValue);
+      int r = resolveSubHasBoundInt(player, request.subId, request.entryKey, def);
+      return String.valueOf(r);
     }
 
     FunctionRequest request = parseFunctionArgs(rawArgs);
@@ -109,7 +111,15 @@ public final class BinderPlaceholderExpansion {
     }
 
     return switch (function) {
-      case "value" -> resolveValue(player, request.mainId, request.slotToken, request.defaultValue);
+      case "value" -> {
+        ValueArg opts = parseValueOptions(rawArgs);
+        FunctionRequest fr = parseFunctionArgs(opts.argsPart());
+        if (fr == null) {
+          logger.warn("无效的占位符参数格式: " + rawArgs);
+          yield "";
+        }
+        yield resolveValue(player, fr.mainId, fr.slotToken, fr.defaultValue, opts.stripColor());
+      }
       case "key" -> resolveKey(player, request.mainId, request.slotToken, request.defaultValue);
       case "display" -> resolveDisplay(player, request.mainId, request.slotToken,
           request.defaultValue);
@@ -144,12 +154,12 @@ public final class BinderPlaceholderExpansion {
       return null;
     }
 
-    String mainId = args[0];
-    String slotToken = args[1];
+    String mainId = args[0] == null ? "" : args[0].trim();
+    String slotToken = args[1] == null ? "" : args[1].trim();
     return new FunctionRequest(mainId, slotToken, defaultValue);
   }
 
-  private String resolveValue(Player player, String mainId, String slotToken, String defaultValue) {
+  private String resolveValue(Player player, String mainId, String slotToken, String defaultValue, boolean stripColor) {
     if (player == null) {
       return defaultValue;
     }
@@ -161,10 +171,27 @@ public final class BinderPlaceholderExpansion {
     if (binding == null) {
       return defaultValue;
     }
-    if (parseValueOnRender) {
-      return placeholderUtil.parse(player, binding.getEntryValue());
+    String base = binding.getEntryValue();
+    logger.debug("[占位符:value] 开始解析: main=" + mainId + ", slotToken=" + slotToken
+        + ", stripColor=" + stripColor + ", base='" + base + "'");
+    String result = parseValueOnRender ? placeholderUtil.parse(player, base) : base;
+    logger.debug("[占位符:value] 解析后结果: '" + result + "' (parseValueOnRender=" + parseValueOnRender + ")");
+    if (result == null || result.isEmpty()) {
+      // 回退：解析结果为空则回退到 base；若 strip 模式且 base 为空，使用去色后的原始值
+      result = base;
+      if (result == null || result.isEmpty()) {
+        return defaultValue;
+      }
     }
-    return binding.getEntryValue();
+    if (stripColor) {
+      String stripped = ColorUtil.stripColorCodes(result);
+      logger.debug("[占位符:value] stripcolor 最终去色输出: '" + stripped + "'");
+      // strip 模式下，直接返回去色后的纯文本（不再润色）
+      return stripped == null || stripped.isEmpty() ? defaultValue : stripped;
+    }
+    String colored = ColorUtil.translateColors(result);
+    logger.debug("[占位符:value] 默认模式最终润色输出: '" + colored + "'");
+    return colored;
   }
 
   private String resolveKey(Player player, String mainId, String slotToken, String defaultValue) {
@@ -229,21 +256,21 @@ public final class BinderPlaceholderExpansion {
     return resolveKey(player, mainId, slotToken, defaultValue);
   }
 
-  private String resolveHasBound(Player player, String mainId, String defaultValue) {
+  private int resolveHasBoundInt(Player player, String mainId, int defaultValue) {
     if (mainId == null || mainId.isEmpty()) {
-      return "false";
+      return 0;
     }
     if (player == null) {
       return defaultValue;
     }
     boolean hasBound = !bindingService.listPlayerMain(player.getUniqueId(), mainId).isEmpty();
-    return hasBound ? "true" : defaultValue;
+    return hasBound ? 1 : defaultValue;
   }
 
-  private String resolveSubHasBound(Player player, String subId, String entryKey,
-      String defaultValue) {
+  private int resolveSubHasBoundInt(Player player, String subId, String entryKey,
+      int defaultValue) {
     if (subId == null || subId.isEmpty() || entryKey == null || entryKey.isEmpty()) {
-      return "false";
+      return 0;
     }
     if (player == null) {
       return defaultValue;
@@ -251,7 +278,7 @@ public final class BinderPlaceholderExpansion {
     for (Binding binding : bindingService.listPlayer(player.getUniqueId())) {
       if (subId.equalsIgnoreCase(binding.getSubId())
           && entryKey.equalsIgnoreCase(binding.getEntryKey())) {
-        return "true";
+        return 1;
       }
     }
     return defaultValue;
@@ -266,9 +293,9 @@ public final class BinderPlaceholderExpansion {
     if (mainId.isEmpty()) {
       return null;
     }
-    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "false";
+    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "0";
     if (defaultValue == null || defaultValue.isEmpty()) {
-      defaultValue = "false";
+      defaultValue = "0";
     }
     return new MainFunctionRequest(mainId, defaultValue);
   }
@@ -291,9 +318,9 @@ public final class BinderPlaceholderExpansion {
     if (subId.isEmpty() || entryKey.isEmpty()) {
       return null;
     }
-    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "false";
+    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "0";
     if (defaultValue == null || defaultValue.isEmpty()) {
-      defaultValue = "false";
+      defaultValue = "0";
     }
     return new SubEntryFunctionRequest(subId, entryKey, defaultValue);
   }
@@ -303,14 +330,19 @@ public final class BinderPlaceholderExpansion {
       return null;
     }
     try {
-      return Integer.parseInt(slotToken);
+      int s = Integer.parseInt(slotToken);
+      logger.debug("[占位符] 槽位标识为数字: token='" + slotToken + "' -> slotIndex=" + s);
+      return s;
     } catch (NumberFormatException ignored) {
       MainGuiDef main = configService.getMain(mainId);
       if (main == null) {
+        logger.debug("[占位符] 主界面不存在: mainId='" + mainId + "'");
         return null;
       }
       MainSlotDef slotDef = main.findSlotById(slotToken);
-      return slotDef == null ? null : slotDef.getSlot();
+      Integer idx = slotDef == null ? null : slotDef.getSlot();
+      logger.debug("[占位符] 槽位别名解析: token='" + slotToken + "' -> slotIndex=" + idx);
+      return idx;
     }
   }
 
@@ -318,6 +350,34 @@ public final class BinderPlaceholderExpansion {
    * 功能请求记录类，用于封装解析后的占位符参数。
    */
   private record FunctionRequest(String mainId, String slotToken, String defaultValue) {
+  }
+
+  /**
+   * value 占位符的选项与参数。允许在原始参数末尾追加 ":stripcolor" 来去除颜色。
+   * 例如：<mainId>_<slot>[|默认值]:stripcolor
+   */
+  private record ValueArg(String argsPart, boolean stripColor) {}
+
+  /**
+   * 解析 value 的原始参数，分离出参数主体与可选的 ":stripcolor" 标志。
+   */
+  private ValueArg parseValueOptions(String rawArgs) {
+    if (rawArgs == null || rawArgs.isEmpty()) {
+      logger.debug("[占位符:value] parseValueOptions 空参数，strip=false");
+      return new ValueArg("", false);
+    }
+    String args = rawArgs.trim();
+    boolean strip = false;
+    int idx = rawArgs.lastIndexOf(':');
+    if (idx >= 0) {
+      String suffix = rawArgs.substring(idx + 1).trim().toLowerCase();
+      if ("stripcolor".equals(suffix)) {
+        strip = true;
+        args = rawArgs.substring(0, idx);
+      }
+    }
+    logger.debug("[占位符:value] parseValueOptions 解析结果: argsPart='" + args + "', strip=" + strip);
+    return new ValueArg(args, strip);
   }
 
   /**
@@ -330,5 +390,84 @@ public final class BinderPlaceholderExpansion {
    * 子界面占位符请求记录类，用于封装依赖子界面条目的占位符参数。
    */
   private record SubEntryFunctionRequest(String subId, String entryKey, String defaultValue) {
+  }
+
+  /**
+   * 处理 has 功能，支持两种格式：
+   * 1. <mainId> 或 <mainId>|默认值 - 检测整个主界面是否有绑定
+   * 2. <mainId>_<slotToken> 或 <mainId>_<slotToken>|默认值 - 检测主界面的指定槽位是否有绑定
+   *
+   * @param player 玩家
+   * @param rawArgs 原始参数
+   * @return 解析结果
+   */
+  private String resolveHasFunction(Player player, String rawArgs) {
+    if (rawArgs == null || rawArgs.isEmpty()) {
+      logger.warn("无效的占位符参数格式: " + rawArgs);
+      return "0";
+    }
+
+    // 按 | 分割默认值部分
+    String[] defaultParts = rawArgs.split("\\|", 2);
+    String mainPart = defaultParts[0];
+    String defaultValue = defaultParts.length > 1 ? defaultParts[1] : "0";
+    if (defaultValue == null || defaultValue.isEmpty()) {
+      defaultValue = "0";
+    }
+    int def = normalize01ToInt(defaultValue);
+
+    // 检查是否包含下划线，判断是否为槽位格式
+    if (mainPart.contains("_")) {
+      // 格式: <mainId>_<slotToken> - 检测特定槽位
+      String[] args = mainPart.split("_", 2);
+      if (args.length < 2) {
+        logger.warn("无效的占位符参数格式: " + rawArgs);
+        return "0";
+      }
+      String mainId = args[0];
+      String slotToken = args[1];
+      int r = resolveHasSlotBoundInt(player, mainId, slotToken, def);
+      return String.valueOf(r);
+    } else {
+      // 格式: <mainId> - 检测整个主界面
+      String mainId = mainPart.trim();
+      if (mainId.isEmpty()) {
+        logger.warn("无效的占位符参数格式: " + rawArgs);
+        return "0";
+      }
+      int r = resolveHasBoundInt(player, mainId, def);
+      return String.valueOf(r);
+    }
+  }
+
+  /**
+   * 检测指定主界面的指定槽位是否有绑定。
+   *
+   * @param player 玩家
+   * @param mainId 主界面 ID
+   * @param slotToken 槽位标识符（数字或别名）
+   * @param defaultValue 默认值（0 或 1）
+   * @return 如果有绑定返回 1，否则返回 defaultValue
+   */
+  private int resolveHasSlotBoundInt(Player player, String mainId, String slotToken, int defaultValue) {
+    if (mainId == null || mainId.isEmpty() || slotToken == null || slotToken.isEmpty()) {
+      return 0;
+    }
+    if (player == null) {
+      return defaultValue;
+    }
+    Integer slot = resolveSlotIndex(mainId, slotToken);
+    if (slot == null) {
+      return defaultValue;
+    }
+    Binding binding = bindingService.get(player.getUniqueId(), mainId, slot);
+    return binding != null ? 1 : defaultValue;
+  }
+
+  /**
+   * 将默认值归一化为整型 0/1。仅当传入字符串严格等于 "1" 时返回 1，其余情况均返回 0。
+   */
+  private int normalize01ToInt(String value) {
+    return "1".equals(value) ? 1 : 0;
   }
 }

@@ -109,6 +109,29 @@ public final class BindingService {
     return chainSnapshot;
   }
 
+  /**
+   * 刷新指定玩家的绑定缓存（跨服同步）
+   *
+   * @param playerUuid 玩家 UUID
+   * @return 刷新操作的 CompletableFuture
+   */
+  public CompletableFuture<Void> refreshPlayerCache(UUID playerUuid) {
+    return repository.loadBindings(playerUuid).thenAccept(bindings -> {
+      // 先清除该玩家的旧缓存
+      cache.keySet().removeIf(key -> playerUuid.equals(key.getPlayerUuid()));
+
+      // 加载最新数据到缓存
+      for (Binding binding : bindings) {
+        cache.put(new BindingKey(binding.getPlayerUuid(), binding.getMainId(), binding.getSlot()),
+            binding);
+      }
+      logger.debug("已刷新玩家缓存: " + playerUuid + ", 绑定数量: " + bindings.size());
+    }).exceptionally(ex -> {
+      logger.error("刷新玩家缓存失败: " + playerUuid, ex);
+      return null;
+    });
+  }
+
   private CompletableFuture<Void> enqueueWrite(TaskSupplier supplier) {
     CompletableFuture<Void> next;
     synchronized (this) {

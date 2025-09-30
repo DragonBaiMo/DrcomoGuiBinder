@@ -9,6 +9,7 @@ import cn.drcomo.drcomoguibinder.bind.Binding;
 import cn.drcomo.drcomoguibinder.bind.BindingService;
 import cn.drcomo.drcomoguibinder.config.GuiConfigService;
 import cn.drcomo.drcomoguibinder.config.model.EntryDef;
+import cn.drcomo.drcomoguibinder.config.model.GuiSlotType;
 import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.config.model.MainGuiDef;
 import cn.drcomo.drcomoguibinder.config.model.MainSlotDef;
@@ -126,13 +127,19 @@ public final class MainGuiController extends PaginatedGui {
     for (MainSlotDef slotDef : def.getSlots()) {
       ItemStack item = resolveSlotDisplay(player, def, slotDef);
       inv.setItem(slotDef.getSlot(), item);
-      registerClick(sessionId, slotDef);
+      
+      // 装饰槽只放置物品，不注册点击事件
+      if (slotDef.getType() != GuiSlotType.DECORATION) {
+        registerClick(sessionId, slotDef);
+      }
     }
   }
 
   private void registerClick(String sessionId, MainSlotDef slotDef) {
     ClickAction action = context -> {
       Player player = context.player();
+      
+      // 点击冷却检查
       long now = System.currentTimeMillis();
       long last = lastClick.getOrDefault(player.getUniqueId(), 0L);
       if (clickCooldownMs > 0 && now - last < clickCooldownMs) {
@@ -140,25 +147,35 @@ public final class MainGuiController extends PaginatedGui {
         return;
       }
       lastClick.put(player.getUniqueId(), now);
+      
       String mainId = currentMain.get(player.getUniqueId());
       if (mainId == null) {
+        logger.warn("玩家 " + player.getName() + " 点击了主界面槽位，但 mainId 为空");
         return;
       }
+      
       MainGuiDef def = configService.getMain(mainId);
       if (def == null) {
+        logger.error("玩家 " + player.getName() + " 当前主界面 " + mainId + " 不存在");
         messageService.send(player, "messages.main-not-found", Map.of("id", mainId));
         return;
       }
-      if (slotDef.getSubId() == null) {
+      
+      // 检查槽位是否配置了 Sub
+      if (slotDef.getSubId() == null || slotDef.getSubId().isEmpty()) {
         messageService.send(player, "messages.slot-no-sub", Map.of("slot", String.valueOf(slotDef.getSlot())));
         return;
       }
+      
       SubGuiDef sub = configService.getSub(slotDef.getSubId());
       if (sub == null) {
+        logger.error("玩家 " + player.getName() + " 点击的槽位指向的 Sub " + slotDef.getSubId() + " 不存在");
         messageService.send(player, "messages.sub-not-found",
             Map.of("id", slotDef.getSubId()));
         return;
       }
+      
+      logger.info("玩家 " + player.getName() + " 打开了 Sub 界面: " + sub.getId());
       bindSessions.createSession(player, new BindSession(mainId, slotDef.getSlot(), sub.getId()));
       if (subGuiController != null) {
         subGuiController.openSub(player, sub);
