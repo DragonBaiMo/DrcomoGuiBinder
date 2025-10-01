@@ -14,7 +14,7 @@ entries:
         - '&7点击返回主界面'
 
   # 装饰槽示例：批量定义多个槽位（新写法，推荐用于装饰边框）
-  - slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+  - slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25]
     type: DECORATION
     key: "decoration_border"
     value: ""
@@ -320,3 +320,15 @@ entries:
           material: stone
           name: '&#ff63ef坠&#e287f7渊&#c5aaff者'
           glow: true
+
+  # 清除绑定槽：点击后清除当前绑定并返回主界面
+  - slot: 26
+    type: CLEAR
+    key: "clear"
+    value: ""
+    display:
+      material: BARRIER
+      name: '&c清除绑定'
+      lore:
+        - '&7点击后将清除当前绑定'
+        - '&7并返回上一层'

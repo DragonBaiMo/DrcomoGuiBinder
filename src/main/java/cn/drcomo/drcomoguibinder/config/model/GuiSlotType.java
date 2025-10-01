@@ -18,5 +18,10 @@ public enum GuiSlotType {
   /**
    * 返回槽，点击后返回上一级界面。
    */
-  RETURN;
+  RETURN,
+
+  /**
+   * 清除绑定槽，点击后清除当前 Main 槽绑定并关闭子界面。
+   */
+  CLEAR;
 }

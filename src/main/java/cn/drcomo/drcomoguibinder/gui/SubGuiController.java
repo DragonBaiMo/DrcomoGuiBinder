@@ -149,6 +149,12 @@ public final class SubGuiController extends PaginatedGui {
         return;
       }
       
+      // 处理清除绑定槽
+      if (entry.getType() == GuiSlotType.CLEAR) {
+        handleClearClick(player, currentSession);
+        return;
+      }
+      
       // 处理默认绑定槽
       if (entry.getType() == GuiSlotType.DEFAULT) {
         handleBindClick(player, currentSession, entry);
@@ -182,6 +188,62 @@ public final class SubGuiController extends PaginatedGui {
       logger.error("主界面控制器未初始化，无法返回");
       player.closeInventory();
     }
+  }
+  
+  /**
+   * 处理清除绑定槽点击事件。
+   */
+  private void handleClearClick(Player player, BindSession session) {
+    if (session == null || session.getMainId() == null || session.getMainId().isEmpty()) {
+      logger.error("玩家 " + player.getName() + " 点击清除绑定槽，但会话数据不完整");
+      messageService.send(player, "messages.clear-no-session", Map.of());
+      player.closeInventory();
+      return;
+    }
+    
+    UUID playerUUID = player.getUniqueId();
+    String mainId = session.getMainId();
+    int slot = session.getSlot();
+    
+    logger.info("玩家 " + player.getName() + " 点击清除绑定槽: mainId=" + mainId + ", slot=" + slot);
+    
+    // 检查当前是否有绑定
+    Binding existingBinding = bindingService.get(playerUUID, mainId, slot);
+    if (existingBinding == null) {
+      logger.info("玩家 " + player.getName() + " 尝试清除绑定，但当前无绑定");
+      messageService.send(player, "messages.clear-no-binding", Map.of());
+      return;
+    }
+    
+    // 执行解绑操作
+    bindingService.clear(playerUUID, mainId, slot).whenComplete((success, ex) -> {
+      if (ex != null) {
+        logger.error("清除绑定失败: mainId=" + mainId + ", slot=" + slot, ex);
+        Bukkit.getScheduler().runTask(plugin, () -> {
+          messageService.send(player, "messages.clear-failed", Map.of());
+        });
+        return;
+      }
+      
+      Bukkit.getScheduler().runTask(plugin, () -> {
+        logger.info("玩家 " + player.getName() + " 成功清除绑定: mainId=" + mainId + ", slot=" + slot);
+        messageService.send(player, "messages.clear-success", Map.of());
+        
+        // 清理会话并关闭子界面
+        currentSub.remove(playerUUID);
+        bindSessions.destroySession(player);
+        sessions.closeSession(player);
+        
+        // 打开主界面并刷新槽位
+        if (mainGuiController != null) {
+          mainGuiController.openMain(player, mainId);
+          mainGuiController.refreshSlot(player, mainId, slot);
+        } else {
+          logger.error("主界面控制器未初始化，无法返回");
+          player.closeInventory();
+        }
+      });
+    });
   }
   
   /**

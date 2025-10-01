@@ -302,6 +302,11 @@ public final class GuiConfigService {
             .material("ARROW")
             .name("&f返回")
             .build();
+      } else if (type == GuiSlotType.CLEAR) {
+        display = ItemTemplate.builder()
+            .material("BARRIER")
+            .name("&c清除绑定")
+            .build();
       } else {
         display = ItemTemplate.builder()
             .material("BOOK")
