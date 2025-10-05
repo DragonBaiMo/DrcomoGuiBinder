@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,7 @@ public final class MySQLProvider implements DatabaseProvider {
 
     // JDBC 连接
     private Connection connection;
+    private final Object connectionLock = new Object();
 
     // 性能监控计数器，借鉴 DrcomoCoreLib 的设计
     private final AtomicLong executedStatements = new AtomicLong(0);
@@ -106,21 +108,22 @@ public final class MySQLProvider implements DatabaseProvider {
 
     @Override
     public void disconnect() {
-        try {
-            if (connection != null && !connection.isClosed()) {
-                // 记录性能统计信息
-                long statements = executedStatements.get();
-                long avgTime = statements > 0 ? totalExecutionTime.get() / statements : 0;
+        synchronized (connectionLock) {
+            try {
+                if (connection != null && !connection.isClosed()) {
+                    long statements = executedStatements.get();
+                    long avgTime = statements > 0 ? totalExecutionTime.get() / statements : 0;
 
-                logger.info("MySQL 断开连接，执行统计 - 总语句数: " + statements +
-                        ", 平均耗时: " + avgTime + "ms");
+                    logger.info("MySQL 断开连接，执行统计 - 总语句数: " + statements +
+                            ", 平均耗时: " + avgTime + "ms");
 
-                connection.close();
-                connection = null;
-                logger.debug("MySQL 连接已关闭");
+                    connection.close();
+                    connection = null;
+                    logger.debug("MySQL 连接已关闭");
+                }
+            } catch (Exception ex) {
+                logger.warn("关闭 MySQL 连接时发生异常: " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            logger.warn("关闭 MySQL 连接时发生异常: " + ex.getMessage());
         }
     }
 
@@ -133,6 +136,7 @@ public final class MySQLProvider implements DatabaseProvider {
 
         // 如果表已存在则跳过整个初始化流程
         try {
+            ensureConnected();
             if (checkTableExists("gui_bindings")) {
                 logger.debug("检测到 gui_bindings 表已存在，跳过初始化脚本执行");
                 return;
@@ -146,7 +150,15 @@ public final class MySQLProvider implements DatabaseProvider {
             // 依次执行脚本
             for (String scriptName : schemaScripts) {
                 logger.debug("执行 MySQL 初始化脚本: " + scriptName);
-                executeSchemaScript(scriptName);
+                try {
+                    executeSchemaScript(scriptName);
+                } catch (SQLSyntaxErrorException syntaxEx) {
+                    if (isDefinitionAlreadyExistsError(syntaxEx)) {
+                        logger.debug("跳过已存在的结构定义: " + syntaxEx.getMessage());
+                        continue;
+                    }
+                    throw syntaxEx;
+                }
             }
 
             // 提交所有建表操作
@@ -163,8 +175,15 @@ public final class MySQLProvider implements DatabaseProvider {
             }
 
             logger.info("MySQL 表结构初始化完成");
+        } catch (SQLException ex) {
+            try {
+                if (connection != null) connection.rollback();
+            } catch (SQLException rollbackEx) {
+                logger.warn("回滚初始化事务时发生异常: " + rollbackEx.getMessage());
+            }
+            logger.error("MySQL 表结构初始化失败", ex);
+            throw ex;
         } catch (Exception ex) {
-            // 失败时尝试回滚并抛出 SQLException
             try {
                 if (connection != null) connection.rollback();
             } catch (SQLException rollbackEx) {
@@ -303,6 +322,12 @@ public final class MySQLProvider implements DatabaseProvider {
 
             logger.info("MySQL 脚本执行完成: " + scriptName);
 
+        } catch (SQLSyntaxErrorException sqlEx) {
+            logger.error("执行 MySQL 脚本失败（语法错误）: " + scriptName, sqlEx);
+            throw sqlEx;
+        } catch (SQLException sqlEx) {
+            logger.error("执行 MySQL 脚本失败（SQL 异常）: " + scriptName, sqlEx);
+            throw sqlEx;
         } catch (Exception ex) {
             logger.error("执行 MySQL 脚本失败: " + scriptName, ex);
             throw new Exception("无法执行SQL脚本: " + scriptName, ex);
@@ -312,7 +337,8 @@ public final class MySQLProvider implements DatabaseProvider {
     /**
      * 检查指定表是否存在于当前数据库中
      */
-    private boolean checkTableExists(String tableName) {
+    private boolean checkTableExists(String tableName) throws SQLException {
+        ensureConnected();
         String sql = "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
         try (var stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, database);
@@ -322,8 +348,12 @@ public final class MySQLProvider implements DatabaseProvider {
                     return rs.getInt(1) > 0;
                 }
             }
-        } catch (Exception ex) {
-            logger.warn("检查表是否存在时发生异常: " + ex.getMessage());
+        } catch (SQLException ex) {
+            logger.error("检查表是否存在时发生 SQL 异常", ex);
+            throw ex;
+        } catch (RuntimeException ex) {
+            logger.error("检查表是否存在时发生运行时异常", ex);
+            throw new SQLException("检查表存在性失败", ex);
         }
         return false;
     }
@@ -388,9 +418,83 @@ public final class MySQLProvider implements DatabaseProvider {
      * 保持行为稳定的前提下提供更早期的错误提示。
      */
     private void validateConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            throw new SQLException("数据库连接未建立或已关闭");
+        ensureConnected();
+    }
+
+    /**
+     * 确保当前 JDBC 连接可用，必要时尝试自动重连。
+     */
+    private void ensureConnected() throws SQLException {
+        synchronized (connectionLock) {
+            boolean needReconnect = false;
+            if (connection != null) {
+                try {
+                    if (!connection.isClosed() && connection.isValid(2)) {
+                        return;
+                    }
+                    needReconnect = true;
+                    logger.warn("检测到 MySQL 连接已失效，准备重新建立连接");
+                } catch (SQLException ex) {
+                    needReconnect = true;
+                    logger.warn("验证 MySQL 连接状态时发生异常: " + ex.getMessage());
+                }
+            } else {
+                needReconnect = true;
+            }
+
+            if (!needReconnect) {
+                return;
+            }
+
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException closeEx) {
+                    logger.warn("关闭失效的 MySQL 连接时发生异常: " + closeEx.getMessage());
+                }
+                connection = null;
+            }
+
+            SQLException lastException = null;
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    logger.info("正在尝试第 " + attempt + " 次建立 MySQL 连接");
+                    connect();
+                    logger.info("MySQL 连接已重新建立");
+                    return;
+                } catch (SQLException ex) {
+                    lastException = ex;
+                    logger.warn("第 " + attempt + " 次连接 MySQL 失败: " + ex.getMessage());
+                    try {
+                        Thread.sleep(200L * attempt);
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        throw new SQLException("等待重连 MySQL 时线程被中断", interruptedException);
+                    }
+                }
+            }
+
+            throw new SQLException("多次尝试建立 MySQL 连接均失败", lastException);
         }
+    }
+
+    /**
+     * 判断异常是否因重复定义导致，可视为结构已存在。
+     */
+    private boolean isDefinitionAlreadyExistsError(SQLException ex) {
+        SQLException current = ex;
+        while (current != null) {
+            int errorCode = current.getErrorCode();
+            String sqlState = current.getSQLState();
+            if (errorCode == 1050 || errorCode == 1060 || errorCode == 1061 || errorCode == 1091) {
+                return true;
+            }
+            if ("42S01".equals(sqlState) || "42S21".equals(sqlState)) {
+                return true;
+            }
+            current = current.getNextException();
+        }
+        return false;
     }
 
     /**
