@@ -1,82 +1,92 @@
 id: class
-title: '&8DrcomoGuiBinder 示例界面'
+title: '&b快捷绑定'
 size: 27
 slots:
   - slot: 10
-    id: "class1"
+    id: class1
     sub: classchoose
     displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
+      material: ENDER_PEARL
+      name: '&7未绑定职业'
       lore:
-        - '&f点击选择适用的职业'
-  - slot: 11
-    id: "class2"
-    sub: classchoose
-    displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
-      lore:
-        - '&f点击选择适用的职业'
+        - '&f快捷键：R+1'
   - slot: 12
-    id: "class3"
+    id: class2
     sub: classchoose
     displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
+      material: ENDER_PEARL
+      name: '&7未绑定职业'
       lore:
-        - '&f点击选择适用的职业'
-  - slot: 13
-    id: "class4"
-    sub: classchoose
-    displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
-      lore:
-        - '&f点击选择适用的职业'
+        - '&f快捷键：R+2'
   - slot: 14
-    id: "class5"
+    id: class3
     sub: classchoose
     displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
+      material: ENDER_PEARL
+      name: '&7未绑定职业'
       lore:
-        - '&f点击选择适用的职业'
-  - slot: 15
-    id: "class6"
-    sub: classchoose
-    displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
-      lore:
-        - '&f点击选择适用的职业'
+        - '&f快捷键：R+3'
   - slot: 16
-    id: "class7"
+    id: class4
     sub: classchoose
     displayEmpty:
-      material: BOOK
-      name: '&7未选择职业'
+      material: ENDER_PEARL
+      name: '&7未绑定职业'
       lore:
-        - '&f点击选择适用的职业'
-
-  # 装饰槽示例：批量定义多个槽位（新写法，推荐用于装饰边框）
-  - slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+        - '&f快捷键：R+4'
+  - slots: [0,1,2,3,4,5,6,7,8,9,11,13,15,17,18,19,20,21,22,23,24,25,26]
     type: DECORATION
     displayEmpty:
-      material: GRAY_STAINED_GLASS_PANE
+      material: BLUE_STAINED_GLASS_PANE
       name: ' '
 
-  # 装饰槽示例：单个槽位（旧写法，依然支持）
-  # - slot: 0
-  #   type: DECORATION
+  # ACTION 类型槽位示例（点击执行命令）
+  # - slot: 22
+  #   type: ACTION
+  #   displayEmpty:
+  #     material: COMMAND_BLOCK
+  #     name: '&a点击执行命令'
+  #     lore:
+  #       - '&7点击执行配置的命令'
+  #   actions:
+  #     - '[player] say 我点击了按钮！'           # 以玩家身份执行
+  #     - '[op] give %player_name% diamond 1'   # 以 OP 权限执行
+  #     - '[console] broadcast 玩家 %player_name% 点击了按钮'  # 以控制台执行
+
+  # entries 多条目动态选择示例（按条件和优先级选择显示内容）
+  # - slot: 10
+  #   id: class1
+  #   sub: classchoose
+  #   entries:
+  #     # 条目1：VIP 玩家看到的特殊展示（优先级高）
+  #     - priority: 100
+  #       conditions:
+  #         display:
+  #           - "%luckperms_in_group_vip% == yes"
+  #         choose:
+  #           - "%luckperms_in_group_vip% == yes"
+  #       displayEmpty:
+  #         material: DIAMOND
+  #         name: '&b[VIP] 未绑定职业'
+  #         lore:
+  #           - '&7快捷键：R+1'
+  #           - '&aVIP专属显示'
+  #       displayBound:  # 绑定后的显示模板（可选）
+  #         name: '&b[VIP] {value}'
+  #         lore:
+  #           - '&7已绑定：{key}'
+  #           - '&aVIP专属效果'
+  #         glow: true
+  #
+  #     # 条目2：普通玩家看到的默认展示（优先级低）
+  #     - priority: 0
+  #       displayEmpty:
+  #         material: ENDER_PEARL
+  #         name: '&7未绑定职业'
+  #         lore:
+  #           - '&f快捷键：R+1'
+  #
+  #   # 兼容旧配置：displayEmpty 作为 fallback（当所有 entries 条件不满足时）
   #   displayEmpty:
   #     material: GRAY_STAINED_GLASS_PANE
-  #     name: ' '
-
-  # - slot: 12
-  #   sub: demo_titles
-  #   displayEmpty:
-  #     material: PAPER
-  #     name: '&7未选择称号'
-  #     lore:
-  #       - '&f点击绑定称号显示'
+  #     name: '&c槽位不可用'

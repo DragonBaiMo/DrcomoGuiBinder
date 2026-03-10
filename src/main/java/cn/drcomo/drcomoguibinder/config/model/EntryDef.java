@@ -17,19 +17,26 @@ public final class EntryDef {
   private final Map<String, ItemTemplate> overrides;
   private final ConditionConfig conditions;
   private final GuiSlotType type;
+  private final int priority;
 
   public EntryDef(int slot, String key, String value, ItemTemplate display,
       Map<String, ItemTemplate> overrides) {
-    this(slot, key, value, display, overrides, ConditionConfig.empty(), GuiSlotType.DEFAULT);
+    this(slot, key, value, display, overrides, ConditionConfig.empty(), GuiSlotType.DEFAULT, 0);
   }
 
   public EntryDef(int slot, String key, String value, ItemTemplate display,
       Map<String, ItemTemplate> overrides, ConditionConfig conditions) {
-    this(slot, key, value, display, overrides, conditions, GuiSlotType.DEFAULT);
+    this(slot, key, value, display, overrides, conditions, GuiSlotType.DEFAULT, 0);
   }
 
   public EntryDef(int slot, String key, String value, ItemTemplate display,
       Map<String, ItemTemplate> overrides, ConditionConfig conditions, GuiSlotType type) {
+    this(slot, key, value, display, overrides, conditions, type, 0);
+  }
+
+  public EntryDef(int slot, String key, String value, ItemTemplate display,
+      Map<String, ItemTemplate> overrides, ConditionConfig conditions, GuiSlotType type,
+      int priority) {
     this.slot = slot;
     this.key = key;
     this.value = value;
@@ -37,6 +44,7 @@ public final class EntryDef {
     this.overrides = overrides == null ? Collections.emptyMap() : Map.copyOf(overrides);
     this.conditions = conditions == null ? ConditionConfig.empty() : conditions;
     this.type = type == null ? GuiSlotType.DEFAULT : type;
+    this.priority = priority;
   }
 
   public int getSlot() {
@@ -68,6 +76,16 @@ public final class EntryDef {
   }
 
   /**
+   * 获取条目的优先级。
+   * 优先级越高，在排序时越靠前显示。
+   *
+   * @return 优先级值，默认为 0
+   */
+  public int getPriority() {
+    return priority;
+  }
+
+  /**
    * 根据 mainId 解析最终的显示模板。
    * 若存在 override，则完全替换默认 display；若不存在，则使用默认 display。
    *
@@ -83,7 +101,7 @@ public final class EntryDef {
   public EntryDef withOverride(String mainId, ItemTemplate template) {
     Map<String, ItemTemplate> map = new LinkedHashMap<>(overrides);
     map.put(mainId, template);
-    return new EntryDef(slot, key, value, display, map, conditions, type);
+    return new EntryDef(slot, key, value, display, map, conditions, type, priority);
   }
 
   @Override
@@ -94,7 +112,8 @@ public final class EntryDef {
     if (!(o instanceof EntryDef entryDef)) {
       return false;
     }
-    return slot == entryDef.slot && Objects.equals(key, entryDef.key)
+    return slot == entryDef.slot && priority == entryDef.priority
+        && Objects.equals(key, entryDef.key)
         && Objects.equals(value, entryDef.value) && Objects.equals(display, entryDef.display)
         && Objects.equals(overrides, entryDef.overrides)
         && Objects.equals(conditions, entryDef.conditions) && type == entryDef.type;
@@ -102,6 +121,6 @@ public final class EntryDef {
 
   @Override
   public int hashCode() {
-    return Objects.hash(slot, key, value, display, overrides, conditions, type);
+    return Objects.hash(slot, key, value, display, overrides, conditions, type, priority);
   }
 }

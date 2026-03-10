@@ -4,6 +4,12 @@ resolveAtBind: false
 clickCooldownMs: 300
 sessionTimeoutMs: 90000
 
+# 主界面清除绑定配置
+# 在主界面点击已绑定的槽位时，使用指定的点击方式可以清除绑定
+# 可选值: DISABLED, RIGHT_CLICK, SHIFT_RIGHT_CLICK, SHIFT_LEFT_CLICK, MIDDLE_CLICK, DROP
+# DISABLED = 禁用此功能（需要进入子界面使用清除按钮）
+mainClearClickType: SHIFT_RIGHT_CLICK
+
 # 数据库配置
 database:
   # 数据库类型：sqlite 或 mysql

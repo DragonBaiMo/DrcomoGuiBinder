@@ -1,11 +1,10 @@
 id: classchoose
-title: '&8职业选择'
-size: 27
+title: '&c职业绑定'
+size: 54
 entries:
-  # 返回槽示例：用于返回上一级界面
-  - slot: 0
-    type: RETURN  # 返回槽类型
-    key: "return"  # key 和 value 对返回槽无意义，但必须提供
+  - slot: 4
+    type: RETURN
+    key: "return"
     value: ""
     display:
       material: ARROW
@@ -13,322 +12,430 @@ entries:
       lore:
         - '&7点击返回主界面'
 
-  # 装饰槽示例：批量定义多个槽位（新写法，推荐用于装饰边框）
-  - slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+  - slots: [0,1,2,3,5,6,7,8,9,10,12,14,16,17,18,20,22,24,26,27,29,31,33,35,36,38,40,42,44,45,46,47,48,49,50,51,52,53]
     type: DECORATION
     key: "decoration_border"
     value: ""
     display:
-      material: GRAY_STAINED_GLASS_PANE
+      material: BLUE_STAINED_GLASS_PANE
       name: ' '
 
-  # 装饰槽示例：单个槽位（旧写法，依然支持）
-  # - slot: 8
-  #   type: DECORATION
-  #   key: "decoration1"
-  #   value: ""
-  #   display:
-  #     material: GRAY_STAINED_GLASS_PANE
-  #     name: ' '
-
-  - slot: 10
+  - slot: 11
+    priority: 100
     conditions:
-      # display: # 没这个权限甚至不会显示
-      #   - "%luckperms_check_permission_necl.class.CBZ% == yes"
+      display:
+        - "%luckperms_check_permission_necl.class.CBZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.CBZ% == yes"
     key: CBZ
     value: '&#78eefb苍&#a7effc庇&#d6f0fd者'
     display:
-      material: IRON_SWORD
+      material: PHANTOM_MEMBRANE
       name: '&#78eefb苍&#a7effc庇&#d6f0fd者'
       lore:
-      - "&7需要: 拥有苍庇者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：承伤 / 输出"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5使用至柔至弱的风息作战的隐世武者，借助自身刚烈"
+      - "&#FBEF39 | &#FAD8C5意志与超绝的掌控力驰骋于战场上。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: PHANTOM_MEMBRANE
           name: '&#78eefb苍&#a7effc庇&#d6f0fd者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 11
-    conditions: 
+  - slot: 13
+    priority: 99
+    conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.CTZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.CTZ% == yes"
     key: CTZ
     value: '&#2297fb掣&#68c5fc霆&#adf3fd者'
     display:
-      material: IRON_SWORD
+      material: CALIBRATED_SCULK_SENSOR
       name: '&#2297fb掣&#68c5fc霆&#adf3fd者'
       lore:
-      - "&7需要: 拥有掣霆者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 控制"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5掌控雷霆共鸣之力的强大修行者, 能够利用雷电强化自己，"
+      - "&#FBEF39 | &#FAD8C5麻痹敌人并给予致命一击。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: CALIBRATED_SCULK_SENSOR
           name: '&#2297fb掣&#68c5fc霆&#adf3fd者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 12
+  - slot: 15
+    priority: 98
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.FZZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.FZZ% == yes"
     key: FZZ
     value: '&#eefa63风&#d0fd6c纵&#b2ff75者'
     display:
-      material: IRON_SWORD
+      material: ENDER_EYE
       name: '&#eefa63风&#d0fd6c纵&#b2ff75者'
       lore:
-      - "&7需要: 拥有风纵者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 干扰"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5在海上歌颂风暴的种族，能够长时间在空中进行战斗，"
+      - "&#FBEF39 | &#FAD8C5利用风暴的力量给予敌人毁灭性打击。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: ENDER_EYE
           name: '&#eefa63风&#d0fd6c纵&#b2ff75者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 13
+  - slot: 19
+    priority: 97
     conditions:
-      choose:
-        - "%luckperms_check_permission_necl.class.HLZ% == yes"
-    key: HLZ
-    value: '&#8dff92灵&#6afac9唤&#47f4ff者'
-    display:
-      material: IRON_SWORD
-      name: '&#8dff92灵&#6afac9唤&#47f4ff者'
-      lore:
-      - "&7需要: 拥有灵唤者权限才能选择"
-    overrides:
-      class:
-        display:
-          material: stone
-          name: '&#8dff92灵&#6afac9唤&#47f4ff者'
-          glow: true
-
-  - slot: 14
-    conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.LHZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.LHZ% == yes"
     key: LHZ
     value: '&#8dff92灵&#6afac9唤&#47f4ff者'
     display:
-      material: IRON_SWORD
+      material: GLOW_INK_SAC
       name: '&#8dff92灵&#6afac9唤&#47f4ff者'
       lore:
-      - "&7需要: 拥有灵唤者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：全能"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5掌控正统圣光术式的魔法师, 拥有强大的支援能力和输出能力,"
+      - "&#FBEF39 | &#FAD8C5能力构成极为多样, 因此战斗风格多变。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: GLOW_INK_SAC
           name: '&#8dff92灵&#6afac9唤&#47f4ff者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 15
+  - slot: 21
+    priority: 96
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.LSZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.LSZ% == yes"
     key: LSZ
     value: '&#7351f9裂&#6654c1神&#585789者'
     display:
-      material: IRON_SWORD
+      material: DRAGON_EGG
       name: '&#7351f9裂&#6654c1神&#585789者'
       lore:
-      - "&7需要: 拥有裂神者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5在大战中立下无数功勋却神秘失踪的掣霆者，"
+      - "&#FBEF39 | &#FAD8C5最终出现在了艾华斯的实验台上。能否在那一"
+      - "&#FBEF39 | &#FAD8C5瞬间，以失去所有东西为代价，窥见神的领域？"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: DRAGON_EGG
           name: '&#7351f9裂&#6654c1神&#585789者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 16
+  - slot: 23
+    priority: 95
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.LWZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.LWZ% == yes"
     key: LWZ
     value: '&#65FFB4轮&#89F996舞&#ACF277者'
     display:
-      material: IRON_SWORD
+      material: LIME_CANDLE
       name: '&#65FFB4轮&#89F996舞&#ACF277者'
       lore:
-      - "&7需要: 拥有轮舞者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 射手"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5与枪械和兵器共鸣的武器大师，能够灵活，"
+      - "&#FBEF39 | &#FAD8C5运用各种武器为友方提供增益，并通过削"
+      - "&#FBEF39 | &#FAD8C5弱敌方来统御战场动向。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: LIME_CANDLE
           name: '&#65FFB4轮&#89F996舞&#ACF277者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 17
+  - slot: 25
+    priority: 94
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.SHZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.SHZ% == yes"
     key: SHZ
     value: '&#fff281升&#fff298华&#fff2af者'
     display:
-      material: IRON_SWORD
+      material: BLAZE_ROD
       name: '&#fff281升&#fff298华&#fff2af者'
       lore:
-      - "&7需要: 拥有升华者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 辅助"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5需要拥有升华者权限才能选择"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: BLAZE_ROD
           name: '&#fff281升&#fff298华&#fff2af者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 18
+  - slot: 28
+    priority: 93
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.SYZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.SYZ% == yes"
     key: SYZ
     value: '&#fb792a圣&#fc9f36谕&#fdc541者'
     display:
-      material: IRON_SWORD
+      material: TOTEM_OF_UNDYING
       name: '&#fb792a圣&#fc9f36谕&#fdc541者'
       lore:
-      - "&7需要: 拥有圣谕者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 战士"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5与古代神纹取得共鸣的魔法战士，"
+      - "&#FBEF39 | &#FAD8C5使用四象神纹成为在战场上最可靠的人形堡垒。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: TOTEM_OF_UNDYING
           name: '&#fb792a圣&#fc9f36谕&#fdc541者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 19
+  - slot: 30
+    priority: 92
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.TMZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.TMZ% == yes"
     key: TMZ
     value: '&#fd9e3f叹&#df7920幕&#c05400者'
     display:
-      material: IRON_SWORD
+      material: CROSSBOW
       name: '&#fd9e3f叹&#df7920幕&#c05400者'
       lore:
-      - "&7需要: 拥有叹幕者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 全能"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5游移在阿尔拜恩界外的「不死者」。"
+      - "&#FBEF39 | &#FAD8C5使用变幻莫测的战术将猎物玩弄于恐惧的股掌之间。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: CROSSBOW
           name: '&#fd9e3f叹&#df7920幕&#c05400者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 20
+  - slot: 32
+    priority: 91
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.XWZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.XWZ% == yes"
     key: XWZ
     value: '&#86c5ff械&#8fe2f9武&#98fff3者'
     display:
-      material: IRON_SWORD
+      material: ECHO_SHARD
       name: '&#86c5ff械&#8fe2f9武&#98fff3者'
       lore:
-      - "&7需要: 拥有械武者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：承伤 / 控制"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5霓虹时代的超能武道家, 能熟练运用各种魂能战技进行战斗。"
+      - "&#FBEF39 | &#FAD8C5拥有强健的身板和强大的机动能力。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: ECHO_SHARD
           name: '&#86c5ff械&#8fe2f9武&#98fff3者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 21
+  - slot: 34
+    priority: 90
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.YXZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.YXZ% == yes"
     key: YXZ
     value: '&#9e96ff影&#b1bdff行&#c4e3ff者'
     display:
-      material: IRON_SWORD
+      material: SHULKER_SHELL
       name: '&#9e96ff影&#b1bdff行&#c4e3ff者'
       lore:
-      - "&7需要: 拥有影行者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：收割 / 控制"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5掌控虚空界缘力量的强大传承者, 能够与虚空共鸣，"
+      - "&#FBEF39 | &#FAD8C5持续不断收割敌人的生命。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: SHULKER_SHELL
           name: '&#9e96ff影&#b1bdff行&#c4e3ff者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 22
+  - slot: 37
+    priority: 89
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.YYZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.YYZ% == yes"
     key: YYZ
     value: '&#ff6581弋&#ff8997御&#ffadad者'
     display:
-      material: IRON_SWORD
+      material: TRIDENT
       name: '&#ff6581弋&#ff8997御&#ffadad者'
       lore:
-      - "&7需要: 拥有弋御者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 射手"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5切斯特时代便早已存在的飘逸武者，"
+      - "&#FBEF39 | &#FAD8C5使用高速回旋的飞刃在光暗交织的地方践行着自己的正义。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: TRIDENT
           name: '&#ff6581弋&#ff8997御&#ffadad者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 23
+  - slot: 39
+    priority: 88
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.YZZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.YZZ% == yes"
     key: YZZ
     value: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
     display:
-      material: IRON_SWORD
+      material: GOLDEN_HORSE_ARMOR
       name: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
       lore:
-      - "&7需要: 拥有驭泽者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：辅助 / 控制"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5需要拥有驭泽者权限才能选择"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: GOLDEN_HORSE_ARMOR
           name: '&#ea3f67驭&#ec5e5a泽&#ed7c4c者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 24
+  - slot: 41
+    priority: 87
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.ZRZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.ZRZ% == yes"
     key: ZRZ
     value: '&#ff42b3铸&#ff3480刃&#ff264d者'
     display:
-      material: IRON_SWORD
+      material: NETHERITE_SWORD
       name: '&#ff42b3铸&#ff3480刃&#ff264d者'
       lore:
-      - "&7需要: 拥有铸刃者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 辅助"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5沉醉于铸造能够与一切刀剑共鸣的元素铸剑师,"
+      - "&#FBEF39 | &#FAD8C5能够轻易掌控元素和利刃, 对敌人施加重创。"
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: NETHERITE_SWORD
           name: '&#ff42b3铸&#ff3480刃&#ff264d者'
+          lore: '&7已选择该职业'
           glow: true
 
-  - slot: 25
+  - slot: 43
+    priority: 86
     conditions:
+      display:
+        - "%luckperms_check_permission_necl.class.ZYZ% == yes"
       choose:
         - "%luckperms_check_permission_necl.class.ZYZ% == yes"
     key: ZYZ
     value: '&#ff63ef坠&#e287f7渊&#c5aaff者'
     display:
-      material: IRON_SWORD
+      material: DRAGON_BREATH
       name: '&#ff63ef坠&#e287f7渊&#c5aaff者'
       lore:
-      - "&7需要: 拥有坠渊者权限才能选择"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5定位：输出 / 坦克"
+      - "&7"
+      - "&#FBEF39 | &#FAD8C5常年深陷于深渊血与火, 在向死而生中锤炼的强大战士,"
+      - "&#FBEF39 | &#FAD8C5拥有越战越勇的战斗潜能."
+      - "&7"
+      - "&#FBEF39→ &#FAD8C5点击绑定."
     overrides:
       class:
         display:
-          material: stone
+          material: DRAGON_BREATH
           name: '&#ff63ef坠&#e287f7渊&#c5aaff者'
+          lore: '&7已选择该职业'
           glow: true
-
-  # 清除绑定槽：点击后清除当前绑定并返回主界面
-  - slot: 26
-    type: CLEAR
-    key: "clear"
-    value: ""
-    display:
-      material: BARRIER
-      name: '&c清除绑定'
-      lore:
-        - '&7点击后将清除当前绑定'
-        - '&7并返回上一层'

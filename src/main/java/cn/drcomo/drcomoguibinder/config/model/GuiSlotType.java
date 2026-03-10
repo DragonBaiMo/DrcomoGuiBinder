@@ -23,5 +23,11 @@ public enum GuiSlotType {
   /**
    * 清除绑定槽，点击后清除当前 Main 槽绑定并关闭子界面。
    */
-  CLEAR;
+  CLEAR,
+
+  /**
+   * 动作槽，点击后执行配置的命令列表。
+   * 支持 [op]、[console]、[player] 前缀指定执行方式。
+   */
+  ACTION;
 }

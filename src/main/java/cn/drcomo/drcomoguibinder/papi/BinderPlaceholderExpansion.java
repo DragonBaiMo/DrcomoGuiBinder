@@ -14,6 +14,9 @@ import cn.drcomo.drcomoguibinder.config.model.SubGuiDef;
 import cn.drcomo.drcomoguibinder.template.ItemTemplateRenderer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -28,12 +31,21 @@ import org.bukkit.inventory.ItemStack;
  */
 public final class BinderPlaceholderExpansion {
 
+  /** 缓存过期时间（毫秒），默认 500ms */
+  private static final long CACHE_EXPIRE_MS = 500L;
+
   private final PlaceholderAPIUtil placeholderUtil;
   private final GuiConfigService configService;
   private final BindingService bindingService;
   private final ItemTemplateRenderer renderer;
   private final boolean parseValueOnRender;
   private final DebugUtil logger;
+
+  /** 占位符解析结果缓存：key = "playerUUID:function:rawArgs"，value = CachedResult */
+  private final Map<String, CachedResult> cache = new ConcurrentHashMap<>();
+
+  /** 缓存写入计数器，用于触发定期清理 */
+  private final AtomicInteger cacheWriteCount = new AtomicInteger(0);
 
   public BinderPlaceholderExpansion(PlaceholderAPIUtil placeholderUtil,
       GuiConfigService configService, BindingService bindingService,
@@ -44,6 +56,26 @@ public final class BinderPlaceholderExpansion {
     this.renderer = renderer;
     this.parseValueOnRender = parseValueOnRender;
     this.logger = logger;
+  }
+
+  /**
+   * 清除指定玩家的占位符缓存。在绑定变更时调用。
+   *
+   * @param playerUUID 玩家 UUID
+   */
+  public void invalidateCache(UUID playerUUID) {
+    if (playerUUID == null) {
+      return;
+    }
+    String prefix = playerUUID.toString() + ":";
+    cache.keySet().removeIf(key -> key.startsWith(prefix));
+  }
+
+  /**
+   * 清除所有占位符缓存。在配置重载时调用。
+   */
+  public void invalidateAllCache() {
+    cache.clear();
   }
 
   public void registerAll() {
@@ -78,7 +110,7 @@ public final class BinderPlaceholderExpansion {
   }
 
   /**
-   * 根据 function 类型分发占位符解析请求。
+   * 根据 function 类型分发占位符解析请求，带缓存机制。
    *
    * @param player 玩家
    * @param function 功能类型 (value, key, display, sub, id, has, subhas)
@@ -89,6 +121,45 @@ public final class BinderPlaceholderExpansion {
    * @return 解析结果
    */
   private String resolveByFunction(Player player, String function, String rawArgs) {
+    if (player == null) {
+      return resolveByFunctionInternal(null, function, rawArgs);
+    }
+
+    // 构建缓存键
+    String cacheKey = player.getUniqueId().toString() + ":" + function + ":" + rawArgs;
+
+    // 检查缓存
+    CachedResult cached = cache.get(cacheKey);
+    long now = System.currentTimeMillis();
+    if (cached != null && (now - cached.timestamp) < CACHE_EXPIRE_MS) {
+      return cached.value;
+    }
+
+    // 缓存未命中或已过期，执行实际解析
+    String result = resolveByFunctionInternal(player, function, rawArgs);
+
+    // 存入缓存
+    cache.put(cacheKey, new CachedResult(result, now));
+
+    // 定期清理过期缓存（每 100 次写入触发一次清理）
+    if (cache.size() > 100 && cacheWriteCount.incrementAndGet() % 100 == 0) {
+      cleanExpiredCache(now);
+    }
+
+    return result;
+  }
+
+  /**
+   * 清理过期的缓存条目。
+   */
+  private void cleanExpiredCache(long now) {
+    cache.entrySet().removeIf(entry -> (now - entry.getValue().timestamp) >= CACHE_EXPIRE_MS);
+  }
+
+  /**
+   * 实际的占位符解析逻辑（无缓存）。
+   */
+  private String resolveByFunctionInternal(Player player, String function, String rawArgs) {
     if ("has".equals(function)) {
       return resolveHasFunction(player, rawArgs);
     }
@@ -172,10 +243,7 @@ public final class BinderPlaceholderExpansion {
       return defaultValue;
     }
     String base = binding.getEntryValue();
-    logger.debug("[占位符:value] 开始解析: main=" + mainId + ", slotToken=" + slotToken
-        + ", stripColor=" + stripColor + ", base='" + base + "'");
     String result = parseValueOnRender ? placeholderUtil.parse(player, base) : base;
-    logger.debug("[占位符:value] 解析后结果: '" + result + "' (parseValueOnRender=" + parseValueOnRender + ")");
     if (result == null || result.isEmpty()) {
       // 回退：解析结果为空则回退到 base；若 strip 模式且 base 为空，使用去色后的原始值
       result = base;
@@ -185,12 +253,10 @@ public final class BinderPlaceholderExpansion {
     }
     if (stripColor) {
       String stripped = ColorUtil.stripColorCodes(result);
-      logger.debug("[占位符:value] stripcolor 最终去色输出: '" + stripped + "'");
       // strip 模式下，直接返回去色后的纯文本（不再润色）
       return stripped == null || stripped.isEmpty() ? defaultValue : stripped;
     }
     String colored = ColorUtil.translateColors(result);
-    logger.debug("[占位符:value] 默认模式最终润色输出: '" + colored + "'");
     return colored;
   }
 
@@ -330,19 +396,14 @@ public final class BinderPlaceholderExpansion {
       return null;
     }
     try {
-      int s = Integer.parseInt(slotToken);
-      logger.debug("[占位符] 槽位标识为数字: token='" + slotToken + "' -> slotIndex=" + s);
-      return s;
+      return Integer.parseInt(slotToken);
     } catch (NumberFormatException ignored) {
       MainGuiDef main = configService.getMain(mainId);
       if (main == null) {
-        logger.debug("[占位符] 主界面不存在: mainId='" + mainId + "'");
         return null;
       }
       MainSlotDef slotDef = main.findSlotById(slotToken);
-      Integer idx = slotDef == null ? null : slotDef.getSlot();
-      logger.debug("[占位符] 槽位别名解析: token='" + slotToken + "' -> slotIndex=" + idx);
-      return idx;
+      return slotDef == null ? null : slotDef.getSlot();
     }
   }
 
@@ -363,7 +424,6 @@ public final class BinderPlaceholderExpansion {
    */
   private ValueArg parseValueOptions(String rawArgs) {
     if (rawArgs == null || rawArgs.isEmpty()) {
-      logger.debug("[占位符:value] parseValueOptions 空参数，strip=false");
       return new ValueArg("", false);
     }
     String args = rawArgs.trim();
@@ -376,7 +436,6 @@ public final class BinderPlaceholderExpansion {
         args = rawArgs.substring(0, idx);
       }
     }
-    logger.debug("[占位符:value] parseValueOptions 解析结果: argsPart='" + args + "', strip=" + strip);
     return new ValueArg(args, strip);
   }
 
@@ -470,4 +529,9 @@ public final class BinderPlaceholderExpansion {
   private int normalize01ToInt(String value) {
     return "1".equals(value) ? 1 : 0;
   }
+
+  /**
+   * 缓存结果记录类。
+   */
+  private record CachedResult(String value, long timestamp) {}
 }

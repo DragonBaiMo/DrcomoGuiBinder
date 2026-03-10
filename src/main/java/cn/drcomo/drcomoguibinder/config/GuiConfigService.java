@@ -3,11 +3,13 @@ package cn.drcomo.drcomoguibinder.config;
 import cn.drcomo.corelib.async.AsyncTaskManager;
 import cn.drcomo.corelib.config.YamlUtil;
 import cn.drcomo.corelib.util.DebugUtil;
+import cn.drcomo.drcomoguibinder.config.model.ConditionConfig;
 import cn.drcomo.drcomoguibinder.config.model.EntryDef;
 import cn.drcomo.drcomoguibinder.config.model.GuiSlotType;
 import cn.drcomo.drcomoguibinder.config.model.ItemTemplate;
 import cn.drcomo.drcomoguibinder.config.model.MainGuiDef;
 import cn.drcomo.drcomoguibinder.config.model.MainSlotDef;
+import cn.drcomo.drcomoguibinder.config.model.MainSlotEntryDef;
 import cn.drcomo.drcomoguibinder.config.model.SubGuiDef;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -203,6 +205,7 @@ public final class GuiConfigService {
     }
 
     GuiSlotType type = parseSlotType(map.get("type"));
+    logger.debug("解析 Main 槽位: type=" + type + ", 原始值=" + map.get("type"));
     ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
 
     // 补充默认显示模板
@@ -226,10 +229,25 @@ public final class GuiConfigService {
       subId = null;
     }
 
+    // ACTION 类型检测 sub 字段警告
+    if (type == GuiSlotType.ACTION && subId != null && !subId.isEmpty()) {
+      logger.warn("Main " + mainId + " 的槽位配置为 ACTION 类型，但指定了 sub 字段，将忽略 sub 配置");
+      subId = null;
+    }
+
+    // 解析条件配置
+    ConditionConfig conditions = parseConditions(map.get("conditions"));
+
+    // 解析 actions 配置
+    List<String> actions = parseActionsList(map.get("actions"));
+
+    // 解析 entries 配置（新增：多条目动态选择支持）
+    List<MainSlotEntryDef> entries = parseMainSlotEntries(map.get("entries"));
+
     // 为每个槽位生成独立的 MainSlotDef
     List<MainSlotDef> slotDefs = new ArrayList<>();
     for (int slot : slotIndices) {
-      slotDefs.add(new MainSlotDef(slot, subId, displayEmpty, slotId, type));
+      slotDefs.add(new MainSlotDef(slot, subId, displayEmpty, slotId, type, conditions, actions, entries));
     }
 
     return slotDefs;
@@ -333,29 +351,77 @@ public final class GuiConfigService {
     }
 
     // 解析条件配置
-    cn.drcomo.drcomoguibinder.config.model.ConditionConfig conditions = parseConditions(map.get("conditions"));
+    ConditionConfig conditions = parseConditions(map.get("conditions"));
+
+    // 解析优先级字段
+    int priority = getInt(map.get("priority"), 0);
 
     // 为每个槽位生成独立的 EntryDef
     List<EntryDef> entries = new ArrayList<>();
     for (int slot : slotIndices) {
-      entries.add(new EntryDef(slot, key, value, display, overrides, conditions, type));
+      entries.add(new EntryDef(slot, key, value, display, overrides, conditions, type, priority));
     }
 
     return entries;
   }
 
-  private cn.drcomo.drcomoguibinder.config.model.ConditionConfig parseConditions(Object conditionsObj) {
-    if (conditionsObj == null) {
-      return cn.drcomo.drcomoguibinder.config.model.ConditionConfig.empty();
+  /**
+   * 解析 Main 槽位的 entries 配置列表。
+   *
+   * @param entriesObj 配置对象（List 或 null）
+   * @return 条目列表，按优先级降序排列
+   */
+  private List<MainSlotEntryDef> parseMainSlotEntries(Object entriesObj) {
+    if (entriesObj == null) {
+      return Collections.emptyList();
     }
-    
+
+    if (!(entriesObj instanceof List<?> entriesList)) {
+      return Collections.emptyList();
+    }
+
+    List<MainSlotEntryDef> entries = new ArrayList<>();
+    for (Object entryObj : entriesList) {
+      if (entryObj instanceof Map<?, ?> entryMap) {
+        MainSlotEntryDef entry = parseMainSlotEntry(entryMap);
+        if (entry != null) {
+          entries.add(entry);
+        }
+      }
+    }
+
+    // 按优先级降序排序
+    entries.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+    return entries;
+  }
+
+  /**
+   * 解析单个 Main 槽位条目。
+   *
+   * @param map 配置映射
+   * @return 条目定义，如果配置无效则返回 null
+   */
+  private MainSlotEntryDef parseMainSlotEntry(Map<?, ?> map) {
+    int priority = getInt(map.get("priority"), 0);
+    ConditionConfig conditions = parseConditions(map.get("conditions"));
+    ItemTemplate displayEmpty = parseItemTemplate(map.get("displayEmpty"));
+    ItemTemplate displayBound = parseItemTemplate(map.get("displayBound"));
+
+    return new MainSlotEntryDef(priority, conditions, displayEmpty, displayBound);
+  }
+
+  private ConditionConfig parseConditions(Object conditionsObj) {
+    if (conditionsObj == null) {
+      return ConditionConfig.empty();
+    }
+
     if (conditionsObj instanceof Map<?, ?> conditionsMap) {
       List<String> displayConditions = parseConditionList(conditionsMap.get("display"));
       List<String> chooseConditions = parseConditionList(conditionsMap.get("choose"));
-      return new cn.drcomo.drcomoguibinder.config.model.ConditionConfig(displayConditions, chooseConditions);
+      return new ConditionConfig(displayConditions, chooseConditions);
     }
-    
-    return cn.drcomo.drcomoguibinder.config.model.ConditionConfig.empty();
+
+    return ConditionConfig.empty();
   }
   
   private List<String> parseConditionList(Object conditionObj) {
@@ -381,6 +447,38 @@ public final class GuiConfigService {
       }
     }
     
+    return Collections.emptyList();
+  }
+
+  /**
+   * 解析 actions 配置列表。
+   *
+   * @param actionsObj 配置对象（List 或 String）
+   * @return 命令列表
+   */
+  private List<String> parseActionsList(Object actionsObj) {
+    if (actionsObj == null) {
+      return Collections.emptyList();
+    }
+
+    if (actionsObj instanceof List<?> list) {
+      List<String> actions = new ArrayList<>();
+      for (Object item : list) {
+        String action = Objects.toString(item, "").trim();
+        if (!action.isEmpty()) {
+          actions.add(action);
+        }
+      }
+      return actions;
+    }
+
+    if (actionsObj instanceof String str) {
+      String action = str.trim();
+      if (!action.isEmpty()) {
+        return List.of(action);
+      }
+    }
+
     return Collections.emptyList();
   }
 

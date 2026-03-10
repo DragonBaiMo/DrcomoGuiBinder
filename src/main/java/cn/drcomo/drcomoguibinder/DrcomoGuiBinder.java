@@ -18,6 +18,7 @@ import cn.drcomo.drcomoguibinder.database.DatabaseProvider;
 import cn.drcomo.drcomoguibinder.database.DatabaseProviderFactory;
 import cn.drcomo.drcomoguibinder.command.CommandHandler;
 import cn.drcomo.drcomoguibinder.config.GuiConfigService;
+import cn.drcomo.drcomoguibinder.config.model.ClearClickType;
 import cn.drcomo.drcomoguibinder.gui.GuiListener;
 import cn.drcomo.drcomoguibinder.gui.MainGuiController;
 import cn.drcomo.drcomoguibinder.gui.SubGuiController;
@@ -60,6 +61,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
   private cn.drcomo.corelib.gui.session.PlayerSessionManager<BindSession> bindSessionManager;
   private boolean resolveAtBind;
   private long clickCooldownMs;
+  private ClearClickType clearClickType;
 
   @Override
   public void onEnable() {
@@ -78,6 +80,7 @@ public final class DrcomoGuiBinder extends JavaPlugin {
 
     this.resolveAtBind = config.getBoolean("resolveAtBind", false);
     this.clickCooldownMs = config.getLong("clickCooldownMs", 300L);
+    this.clearClickType = ClearClickType.fromString(config.getString("mainClearClickType", "DISABLED"));
     long sessionTimeout = config.getLong("sessionTimeoutMs", 90000L);
     ConfigurationSection databaseConfig = config.getConfigurationSection("database");
     if (databaseConfig == null) {
@@ -140,9 +143,12 @@ public final class DrcomoGuiBinder extends JavaPlugin {
     this.placeholderExpansion = new BinderPlaceholderExpansion(placeholderUtil,
         configService, bindingService, itemRenderer, !resolveAtBind, logger);
 
+    // 绑定变更时清除对应玩家的占位符缓存
+    bindingService.setBindingChangeListener(placeholderExpansion::invalidateCache);
+
     this.mainGuiController = new MainGuiController(guiSessionManager, guiDispatcher, configService,
         bindingService, itemRenderer, bindSessionManager, logger, messageService,
-        !resolveAtBind, clickCooldownMs);
+        conditionEvaluator, placeholderUtil, !resolveAtBind, clickCooldownMs, clearClickType, this);
     this.subGuiController = new SubGuiController(guiSessionManager, guiDispatcher, configService,
         bindingService, itemRenderer, bindSessionManager, logger, messageService,
         placeholderUtil, conditionEvaluator, resolveAtBind, mainGuiController, this);
@@ -161,6 +167,27 @@ public final class DrcomoGuiBinder extends JavaPlugin {
 
     placeholderExpansion.registerAll();
     configService.addReloadListener(() -> {
+      // 重新读取主配置
+      yamlUtil.loadConfig("config");
+      YamlConfiguration reloadedConfig = yamlUtil.getConfig("config");
+
+      // 更新日志级别
+      String newLogLevel = reloadedConfig.getString("logLevel", "INFO");
+      try {
+        logger.setLevel(LogLevel.valueOf(newLogLevel.toUpperCase(Locale.ROOT)));
+        logger.info("日志级别已更新为: " + newLogLevel);
+      } catch (IllegalArgumentException ex) {
+        logger.warn("未知的日志级别: " + newLogLevel + "，保持当前级别");
+      }
+
+      // 更新清除点击类型
+      ClearClickType newClearClickType = ClearClickType.fromString(
+          reloadedConfig.getString("mainClearClickType", "DISABLED"));
+      mainGuiController.setClearClickType(newClearClickType);
+
+      // 清除所有占位符缓存
+      placeholderExpansion.invalidateAllCache();
+
       placeholderExpansion.registerAll();
       mainGuiController.handleConfigReload();
       subGuiController.handleConfigReload();

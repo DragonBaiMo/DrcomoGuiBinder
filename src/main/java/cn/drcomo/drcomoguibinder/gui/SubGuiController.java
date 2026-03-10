@@ -17,7 +17,9 @@ import cn.drcomo.drcomoguibinder.config.model.SubGuiDef;
 import cn.drcomo.drcomoguibinder.event.GuiBindEvent;
 import cn.drcomo.drcomoguibinder.gui.session.BindSession;
 import cn.drcomo.drcomoguibinder.template.ItemTemplateRenderer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -91,7 +93,9 @@ public final class SubGuiController extends PaginatedGui {
     SubGuiDef def = currentDefinition(player);
     int size = def == null ? 54 : def.getSize();
     String title = def == null ? "&c子界面缺失" : def.getTitle();
-    return Bukkit.createInventory(player, size, cn.drcomo.corelib.color.ColorUtil.translateColors(title));
+    // 解析占位符（支持 PAPI 和 ItemsAdder 格式）
+    String parsedTitle = placeholderUtil.parse(player, title);
+    return Bukkit.createInventory(player, size, cn.drcomo.corelib.color.ColorUtil.translateColors(parsedTitle));
   }
 
   @Override
@@ -110,13 +114,23 @@ public final class SubGuiController extends PaginatedGui {
     String sessionId = sessionId(player);
     dispatcher.unregister(sessionId);
     inv.clear();
+
+    // 分离特殊槽位和普通条目
+    List<EntryDef> specialEntries = new ArrayList<>();  // 装饰/返回/清除
+    List<EntryDef> normalEntries = new ArrayList<>();   // 普通职业条目
+
     for (EntryDef entry : def.getEntries()) {
-      // 检查显示条件
-      if (!checkDisplayConditions(player, entry)) {
-        continue; // 不满足显示条件，跳过该条目
+      if (entry.getType() == GuiSlotType.DECORATION
+          || entry.getType() == GuiSlotType.RETURN
+          || entry.getType() == GuiSlotType.CLEAR) {
+        specialEntries.add(entry);
+      } else if (checkDisplayConditions(player, entry)) {
+        normalEntries.add(entry);
       }
-      
-      // 子界面始终使用默认展示模板
+    }
+
+    // 渲染特殊槽位（保持原位）
+    for (EntryDef entry : specialEntries) {
       ItemTemplate template = entry.getDisplay();
       Map<String, String> placeholders = new HashMap<>();
       placeholders.put("key", entry.getKey());
@@ -125,15 +139,54 @@ public final class SubGuiController extends PaginatedGui {
       placeholders.put("main", session.getMainId());
       ItemStack item = renderer.render(template, player, placeholders, true);
       inv.setItem(entry.getSlot(), item);
-      
-      // 装饰槽只放置物品，不注册点击事件
+
+      // 装饰槽不注册点击事件
       if (entry.getType() != GuiSlotType.DECORATION) {
-        registerClick(sessionId, entry, session);
+        registerClick(sessionId, entry, session, entry.getSlot());
       }
+    }
+
+    // 按 slot 分组，每个 slot 只保留优先级最高的条目
+    Map<Integer, EntryDef> slotToEntry = new HashMap<>();
+    for (EntryDef entry : normalEntries) {
+      int slot = entry.getSlot();
+      EntryDef existing = slotToEntry.get(slot);
+      if (existing == null || entry.getPriority() > existing.getPriority()) {
+        slotToEntry.put(slot, entry);
+      }
+    }
+
+    // 收集去重后的条目并按优先级降序排序
+    List<EntryDef> sortedEntries = new ArrayList<>(slotToEntry.values());
+    sortedEntries.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+
+    // 收集配置中所有普通条目的 slot 列表（按配置顺序，去重）
+    List<Integer> availableSlots = new ArrayList<>();
+    for (EntryDef entry : def.getEntries()) {
+      if (entry.getType() == GuiSlotType.DEFAULT && !availableSlots.contains(entry.getSlot())) {
+        availableSlots.add(entry.getSlot());
+      }
+    }
+
+    // 按优先级顺序依次填充到可用槽位
+    for (int i = 0; i < sortedEntries.size() && i < availableSlots.size(); i++) {
+      EntryDef entry = sortedEntries.get(i);
+      int targetSlot = availableSlots.get(i);
+
+      ItemTemplate template = entry.getDisplay();
+      Map<String, String> placeholders = new HashMap<>();
+      placeholders.put("key", entry.getKey());
+      placeholders.put("value", entry.getValue());
+      placeholders.put("sub", def.getId());
+      placeholders.put("main", session.getMainId());
+      ItemStack item = renderer.render(template, player, placeholders, true);
+      inv.setItem(targetSlot, item);
+
+      registerClick(sessionId, entry, session, targetSlot);
     }
   }
 
-  private void registerClick(String sessionId, EntryDef entry, BindSession session) {
+  private void registerClick(String sessionId, EntryDef entry, BindSession session, int targetSlot) {
     ClickAction action = context -> {
       Player player = context.player();
       BindSession currentSession = bindSessions.getSession(player);
@@ -161,7 +214,7 @@ public final class SubGuiController extends PaginatedGui {
         return;
       }
     };
-    dispatcher.registerForSlot(sessionId, entry.getSlot(), action);
+    dispatcher.registerForSlot(sessionId, targetSlot, action);
   }
   
   /**
